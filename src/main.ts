@@ -6,7 +6,7 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.use(morgan('dev'));
+  app.use(morgan('combined'));
 
   const corsOrigins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
