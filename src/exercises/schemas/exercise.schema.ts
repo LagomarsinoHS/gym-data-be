@@ -37,7 +37,7 @@ export class LocalizedSteps {
   es?: string[];
 }
 
-@Schema({ timestamps: true, id: false })
+@Schema({ timestamps: true, id: false, collection: 'exercises' })
 export class Exercise {
   @ApiProperty({ example: '0001' })
   @Prop({ required: true })

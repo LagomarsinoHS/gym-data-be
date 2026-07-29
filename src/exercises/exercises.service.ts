@@ -45,4 +45,8 @@ export class ExercisesService {
     }
     return exercise;
   }
+
+  async getExercisesByIds(ids: string[]): Promise<ExerciseDocument[]> {
+    return await this.exercisesRepository.findByIds(ids);
+  }
 }

@@ -1,0 +1,58 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { UsersRepository } from './repositories/users.repository';
+import { User, UserDocument } from './schemas/user.schema';
+import { CreateUserData } from './types/create-user-data.type';
+import { MeResponseDto } from './dto/me-response.dto';
+import { ExercisesService } from '../exercises/exercises.service';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    private readonly exercisesService: ExercisesService,
+  ) {}
+
+  findByEmail(email: string): Promise<UserDocument | null> {
+    return this.usersRepository.findByEmail(email);
+  }
+
+  async getUserById(id: string): Promise<MeResponseDto> {
+    const user = await this.usersRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    const { password, trainingProgram, ...safeUser } = user.toObject();
+    const ids = trainingProgram.map((item) => item.exerciseId);
+    const catalog = await this.exercisesService.getExercisesByIds(ids);
+    const byId = new Map(catalog.map((e) => [e.id, e]));
+
+    const program = trainingProgram.map((item) => {
+      const found = byId.get(item.exerciseId);
+      return {
+        exerciseId: item.exerciseId,
+        order: item.order,
+        sets: item.sets,
+        reps: item.reps,
+        rest: item.rest,
+        notes: item.notes,
+        exercise: found
+          ? {
+              id: found.id,
+              name: found.name,
+              image: found.image,
+              gif_url: found.gif_url,
+              category: found.category,
+              equipment: found.equipment,
+            }
+          : null,
+      };
+    });
+
+    return { ...safeUser, trainingProgram: program };
+  }
+
+  create(data: CreateUserData): Promise<Omit<User, 'password'>> {
+    return this.usersRepository.create(data);
+  }
+}

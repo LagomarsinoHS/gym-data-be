@@ -21,6 +21,7 @@ async function bootstrap() {
     .setTitle('Gym Data API')
     .setDescription('API for gym exercises data')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

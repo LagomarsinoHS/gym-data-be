@@ -39,6 +39,19 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/** Case + accent insensitive pattern for Spanish-friendly search. */
+function toAccentInsensitivePattern(input: string): string {
+  const base = escapeRegex(input.normalize('NFD').replace(/\p{M}/gu, ''));
+  return base
+    .replace(/a/gi, '[aáàäâã]')
+    .replace(/e/gi, '[eéèëê]')
+    .replace(/i/gi, '[iíìïî]')
+    .replace(/o/gi, '[oóòöôõ]')
+    .replace(/u/gi, '[uúùüû]')
+    .replace(/n/gi, '[nñ]')
+    .replace(/c/gi, '[cç]');
+}
+
 @Injectable()
 export class ExercisesRepository {
   constructor(
@@ -91,6 +104,22 @@ export class ExercisesRepository {
     };
   }
 
+  async findByIds(ids: string[]): Promise<ExerciseDocument[]> {
+    return this.exerciseModel
+      .find(
+        { id: { $in: ids } },
+        {
+          id: 1,
+          name: 1,
+          image: 1,
+          gif_url: 1,
+          category: 1,
+          equipment: 1,
+        },
+      )
+      .exec();
+  }
+
   private buildFilter(filters: ExerciseFilters) {
     const exerciseFilter: {
       category?: string;
@@ -119,7 +148,7 @@ export class ExercisesRepository {
       exerciseFilter.target = filters.target;
     }
     if (filters.search) {
-      const rx = new RegExp(escapeRegex(filters.search), 'i');
+      const rx = new RegExp(toAccentInsensitivePattern(filters.search), 'i');
       exerciseFilter.$or = [{ 'name.en': rx }, { 'name.es': rx }, { id: rx }];
     }
 

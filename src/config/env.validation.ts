@@ -10,9 +10,11 @@ export const envValidationSchema = Joi.object({
     'any.required': 'Missing required environment variable: MONGODB_DATABASE',
     'string.empty': 'Missing required environment variable: MONGODB_DATABASE',
   }),
-  MONGODB_COLLECTION: Joi.string().min(1).required().messages({
-    'any.required': 'Missing required environment variable: MONGODB_COLLECTION',
-    'string.empty': 'Missing required environment variable: MONGODB_COLLECTION',
+  JWT_SECRET: Joi.string().min(32).required().messages({
+    'any.required': 'Missing required environment variable: JWT_SECRET',
+    'string.empty': 'Missing required environment variable: JWT_SECRET',
+    'string.min': 'JWT_SECRET must be at least 32 characters',
   }),
+  JWT_EXPIRES_IN: Joi.string().default('7d'),
   CORS_ORIGINS: Joi.string().allow('').optional(),
 });
