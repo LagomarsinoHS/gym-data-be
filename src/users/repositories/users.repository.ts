@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument } from '../schemas/user.schema';
+import {
+  TrainingProgramExercise,
+  User,
+  UserDocument,
+} from '../schemas/user.schema';
 import { CreateUserData } from '../types/create-user-data.type';
 
 @Injectable()
@@ -23,5 +27,29 @@ export class UsersRepository {
     const created = await this.userModel.create(user);
     const { password: _password, ...safeUser } = created.toObject();
     return safeUser;
+  }
+
+  async addToTrainingProgram(
+    userId: string,
+    items: Pick<TrainingProgramExercise, 'exerciseId'>[],
+  ): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: userId, deletedAt: null },
+        { $push: { trainingProgram: { $each: items, $position: 0 } } },
+      )
+      .exec();
+  }
+
+  async removeFromTrainingProgram(
+    userId: string,
+    exerciseId: string,
+  ): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: userId, deletedAt: null },
+        { $pull: { trainingProgram: { exerciseId } } },
+      )
+      .exec();
   }
 }

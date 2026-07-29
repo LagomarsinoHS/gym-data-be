@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersRepository } from './repositories/users.repository';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserData } from './types/create-user-data.type';
@@ -16,11 +20,16 @@ export class UsersService {
     return this.usersRepository.findByEmail(email);
   }
 
-  async getUserById(id: string): Promise<MeResponseDto> {
+  private async findByIdOrFail(id: string): Promise<UserDocument> {
     const user = await this.usersRepository.findById(id);
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+    return user;
+  }
+
+  async getUserById(id: string): Promise<MeResponseDto> {
+    const user = await this.findByIdOrFail(id);
 
     const { password, trainingProgram, ...safeUser } = user.toObject();
     const ids = trainingProgram.map((item) => item.exerciseId);
@@ -50,6 +59,56 @@ export class UsersService {
     });
 
     return { ...safeUser, trainingProgram: program };
+  }
+
+  async addToTrainingProgram(
+    jwtUserId: string,
+    userId: string,
+    exerciseIds: string[],
+  ): Promise<MeResponseDto> {
+    if (jwtUserId !== userId) {
+      throw new ForbiddenException(
+        'You can only update your own training program',
+      );
+    }
+
+    const user = await this.findByIdOrFail(userId);
+
+    const uniqueIds = [...new Set(exerciseIds)];
+    const catalog = await this.exercisesService.getExercisesByIds(uniqueIds);
+    const foundIds = new Set(catalog.map((e) => e.id));
+    const missing = uniqueIds.filter((id) => !foundIds.has(id));
+    if (missing.length > 0) {
+      throw new NotFoundException(`Exercises not found: ${missing.join(', ')}`);
+    }
+
+    const existing = new Set(
+      user.trainingProgram.map((item) => item.exerciseId),
+    );
+    const toAdd = uniqueIds.filter((id) => !existing.has(id));
+    if (toAdd.length === 0) {
+      return this.getUserById(userId);
+    }
+
+    const items = toAdd.map((exerciseId) => ({ exerciseId }));
+    await this.usersRepository.addToTrainingProgram(userId, items);
+    return this.getUserById(userId);
+  }
+
+  async removeFromTrainingProgram(
+    jwtUserId: string,
+    userId: string,
+    exerciseId: string,
+  ): Promise<MeResponseDto> {
+    if (jwtUserId !== userId) {
+      throw new ForbiddenException(
+        'You can only update your own training program',
+      );
+    }
+
+    await this.findByIdOrFail(userId);
+    await this.usersRepository.removeFromTrainingProgram(userId, exerciseId);
+    return this.getUserById(userId);
   }
 
   create(data: CreateUserData): Promise<Omit<User, 'password'>> {
