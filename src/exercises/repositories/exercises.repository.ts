@@ -10,7 +10,34 @@ export type ExerciseFilters = {
   equipment?: string;
   muscleGroup?: string;
   target?: string;
+  search?: string;
 };
+
+/** All exercise fields; instructions / instruction_steps only en + es. */
+const EXERCISE_PROJECTION = {
+  id: 1,
+  name: 1,
+  category: 1,
+  body_part: 1,
+  equipment: 1,
+  'instructions.en': 1,
+  'instructions.es': 1,
+  'instruction_steps.en': 1,
+  'instruction_steps.es': 1,
+  muscle_group: 1,
+  secondary_muscles: 1,
+  target: 1,
+  image: 1,
+  gif_url: 1,
+  media_id: 1,
+  attribution: 1,
+  createdAt: 1,
+  updatedAt: 1,
+} as const;
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 @Injectable()
 export class ExercisesRepository {
@@ -25,14 +52,14 @@ export class ExercisesRepository {
     filters: ExerciseFilters = {},
   ): Promise<ExerciseDocument[]> {
     return this.exerciseModel
-      .find(this.buildFilter(filters))
+      .find(this.buildFilter(filters), EXERCISE_PROJECTION)
       .skip(skip)
       .limit(limit)
       .exec();
   }
 
   findById(id: string): Promise<ExerciseDocument | null> {
-    return this.exerciseModel.findOne({ id }).exec();
+    return this.exerciseModel.findOne({ id }, EXERCISE_PROJECTION).exec();
   }
 
   count(filters: ExerciseFilters = {}): Promise<number> {
@@ -41,7 +68,10 @@ export class ExercisesRepository {
 
   async findRandom(): Promise<ExerciseDocument | null> {
     const [exercise] = await this.exerciseModel
-      .aggregate<ExerciseDocument>([{ $sample: { size: 1 } }])
+      .aggregate<ExerciseDocument>([
+        { $sample: { size: 1 } },
+        { $project: EXERCISE_PROJECTION },
+      ])
       .exec();
 
     return exercise ?? null;
@@ -61,8 +91,17 @@ export class ExercisesRepository {
     };
   }
 
-  private buildFilter(filters: ExerciseFilters): Record<string, string> {
-    const exerciseFilter: Record<string, string> = {};
+  private buildFilter(filters: ExerciseFilters) {
+    const exerciseFilter: {
+      category?: string;
+      body_part?: string;
+      equipment?: string;
+      muscle_group?: string;
+      target?: string;
+      $or?: Array<
+        { 'name.en': RegExp } | { 'name.es': RegExp } | { id: RegExp }
+      >;
+    } = {};
 
     if (filters.category) {
       exerciseFilter.category = filters.category;
@@ -78,6 +117,10 @@ export class ExercisesRepository {
     }
     if (filters.target) {
       exerciseFilter.target = filters.target;
+    }
+    if (filters.search) {
+      const rx = new RegExp(escapeRegex(filters.search), 'i');
+      exerciseFilter.$or = [{ 'name.en': rx }, { 'name.es': rx }, { id: rx }];
     }
 
     return exerciseFilter;

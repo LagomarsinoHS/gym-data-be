@@ -4,15 +4,48 @@ import { HydratedDocument } from 'mongoose';
 
 export type ExerciseDocument = HydratedDocument<Exercise>;
 
-@Schema({ collection: 'exercises', timestamps: false, id: false })
+@Schema({ _id: false })
+export class ExerciseName {
+  @ApiProperty({ example: '3/4 sit-up' })
+  @Prop({ required: true })
+  en: string;
+
+  @ApiProperty({ example: 'Abdominales a 3/4' })
+  @Prop({ required: true })
+  es: string;
+}
+
+@Schema({ _id: false })
+export class LocalizedText {
+  @ApiProperty({ example: 'Lie flat on your back...' })
+  @Prop()
+  en?: string;
+
+  @ApiProperty({ example: 'Túmbate sobre tu espalda...' })
+  @Prop()
+  es?: string;
+}
+
+@Schema({ _id: false })
+export class LocalizedSteps {
+  @ApiProperty({ type: [String], example: ['Lie flat on your back...'] })
+  @Prop({ type: [String] })
+  en?: string[];
+
+  @ApiProperty({ type: [String], example: ['Túmbate sobre tu espalda...'] })
+  @Prop({ type: [String] })
+  es?: string[];
+}
+
+@Schema({ timestamps: true, id: false })
 export class Exercise {
   @ApiProperty({ example: '0001' })
   @Prop({ required: true })
   id: string;
 
-  @ApiProperty({ example: '3/4 sit-up' })
-  @Prop({ required: true })
-  name: string;
+  @ApiProperty({ type: ExerciseName })
+  @Prop({ type: ExerciseName, required: true })
+  name: ExerciseName;
 
   @ApiPropertyOptional({ example: 'waist' })
   @Prop()
@@ -26,20 +59,13 @@ export class Exercise {
   @Prop()
   equipment?: string;
 
-  @ApiPropertyOptional({
-    type: 'object',
-    additionalProperties: { type: 'string' },
-    example: { en: 'Lie flat on your back...' },
-  })
-  @Prop({ type: Object })
-  instructions?: Record<string, string>;
+  @ApiPropertyOptional({ type: LocalizedText })
+  @Prop({ type: LocalizedText })
+  instructions?: LocalizedText;
 
-  @ApiPropertyOptional({
-    type: 'object',
-    additionalProperties: { type: 'array', items: { type: 'string' } },
-  })
-  @Prop({ type: Object })
-  instruction_steps?: Record<string, string[]>;
+  @ApiPropertyOptional({ type: LocalizedSteps })
+  @Prop({ type: LocalizedSteps })
+  instruction_steps?: LocalizedSteps;
 
   @ApiPropertyOptional({ example: 'hip flexors' })
   @Prop()
@@ -68,15 +94,17 @@ export class Exercise {
   @Prop()
   media_id?: string;
 
-  @ApiPropertyOptional({ example: '2026-03-18T12:31:32.854798+00:00' })
-  @Prop()
-  created_at?: string;
-
   @ApiPropertyOptional({
     example: '© Gym visual — https://gymvisual.com/',
   })
   @Prop()
   attribution?: string;
+
+  @ApiPropertyOptional({ example: '2026-07-28T22:35:00.000Z' })
+  createdAt?: Date;
+
+  @ApiPropertyOptional({ example: '2026-07-28T22:35:00.000Z' })
+  updatedAt?: Date;
 }
 
 export const ExerciseSchema = SchemaFactory.createForClass(Exercise);

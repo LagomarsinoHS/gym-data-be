@@ -10,5 +10,9 @@ export const envValidationSchema = Joi.object({
     'any.required': 'Missing required environment variable: MONGODB_DATABASE',
     'string.empty': 'Missing required environment variable: MONGODB_DATABASE',
   }),
+  MONGODB_COLLECTION: Joi.string().min(1).required().messages({
+    'any.required': 'Missing required environment variable: MONGODB_COLLECTION',
+    'string.empty': 'Missing required environment variable: MONGODB_COLLECTION',
+  }),
   CORS_ORIGINS: Joi.string().allow('').optional(),
 });

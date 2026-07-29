@@ -27,6 +27,9 @@ export class GetExercisesQueryDto {
 
   @ApiPropertyOptional({ example: 'hip flexors' })
   muscleGroup?: string;
+
+  @ApiPropertyOptional({ example: 'sit-up' })
+  search?: string;
 }
 
 export const getExercisesQuerySchema = Joi.object<GetExercisesQueryDto>({
@@ -37,4 +40,5 @@ export const getExercisesQuerySchema = Joi.object<GetExercisesQueryDto>({
   target: Joi.string().trim().empty('').optional(),
   equipment: Joi.string().trim().empty('').optional(),
   muscleGroup: Joi.string().trim().empty('').optional(),
+  search: Joi.string().trim().empty('').optional(),
 });
