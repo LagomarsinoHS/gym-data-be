@@ -1,12 +1,22 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NextFunction, Request, Response } from 'express';
 import morgan from 'morgan';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('HTTP');
 
   app.use(morgan('combined'));
+
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    logger.log(
+      `${req.method} ${req.originalUrl} origin=${req.headers.origin ?? 'none'}`,
+    );
+    next();
+  });
 
   const corsOrigins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
