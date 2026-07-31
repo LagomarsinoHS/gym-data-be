@@ -19,6 +19,8 @@ import { RegisterDto, registerSchema } from './dto/register.dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // --- POST ---
+
   @Post('register')
   @ApiOperation({ summary: 'Register a new user and receive a JWT' })
   @ApiBody({ type: RegisterDto })

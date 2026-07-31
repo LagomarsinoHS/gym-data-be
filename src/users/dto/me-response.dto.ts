@@ -41,12 +41,11 @@ export class MeTrainingProgramItemDto {
   @ApiPropertyOptional({ example: 'Controlar la bajada' })
   notes?: string;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     type: MeExerciseSummaryDto,
-    nullable: true,
     description: 'Catalog exercise resolved by exerciseId',
   })
-  exercise: MeExerciseSummaryDto | null;
+  exercise: MeExerciseSummaryDto;
 }
 
 export class MeResponseDto {
@@ -76,6 +75,9 @@ export class MeResponseDto {
 
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];
+
+  @ApiProperty({ type: [MeTrainingProgramItemDto] })
+  coachTrainingProgram: MeTrainingProgramItemDto[];
 
   @ApiPropertyOptional({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;

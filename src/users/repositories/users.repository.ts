@@ -52,4 +52,39 @@ export class UsersRepository {
       )
       .exec();
   }
+
+  async updateTrainingProgramExercise(
+    userId: string,
+    exerciseId: string,
+    patch: Partial<
+      Pick<TrainingProgramExercise, 'sets' | 'reps' | 'rest' | 'notes'>
+    >,
+  ): Promise<boolean> {
+    const $set: Record<string, string | number> = {};
+    if (patch.sets !== undefined) {
+      $set['trainingProgram.$.sets'] = patch.sets;
+    }
+    if (patch.reps !== undefined) {
+      $set['trainingProgram.$.reps'] = patch.reps;
+    }
+    if (patch.rest !== undefined) {
+      $set['trainingProgram.$.rest'] = patch.rest;
+    }
+    if (patch.notes !== undefined) {
+      $set['trainingProgram.$.notes'] = patch.notes;
+    }
+
+    const result = await this.userModel
+      .updateOne(
+        {
+          id: userId,
+          deletedAt: null,
+          'trainingProgram.exerciseId': exerciseId,
+        },
+        { $set },
+      )
+      .exec();
+
+    return result.matchedCount > 0;
+  }
 }

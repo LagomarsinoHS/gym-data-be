@@ -81,6 +81,15 @@ export class User {
   @Prop({ type: [TrainingProgramExercise], default: [] })
   trainingProgram: TrainingProgramExercise[];
 
+  @ApiProperty({
+    type: [TrainingProgramExercise],
+    default: [],
+    description:
+      'Program assigned by the coach to the athlete (separate from self-serve trainingProgram)',
+  })
+  @Prop({ type: [TrainingProgramExercise], default: [] })
+  coachTrainingProgram: TrainingProgramExercise[];
+
   @ApiProperty({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;
 

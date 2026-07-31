@@ -27,6 +27,8 @@ import { Exercise } from './schemas/exercise.schema';
 export class ExercisesController {
   constructor(private readonly exercisesService: ExercisesService) {}
 
+  // --- GET ---
+
   @Get()
   @ApiOperation({ summary: 'List exercises with pagination and filters' })
   @ApiOkResponse({ type: PaginatedExercisesResponse })
