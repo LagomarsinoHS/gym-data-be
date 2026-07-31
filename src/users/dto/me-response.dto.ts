@@ -71,6 +71,9 @@ export class MeResponseDto {
   @ApiProperty({ example: true })
   active: boolean;
 
+  @ApiProperty({ example: false })
+  isPremium: boolean;
+
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];
 

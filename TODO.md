@@ -1,48 +1,42 @@
-Siguiente (bloquea “Mi plan” logueado)
-GET /me (Bearer token)
-Usuario actual: id, email, name, lastName
-Sin token / token inválido → 401
+# Gym Data BE — TODO
 
-Middleware JWT
-Lee Authorization: Bearer <accessToken>, valida, pone userId en el request
+## Hecho (back)
 
-GET /me/program (Bearer)
-Plan activo del alumno + ejercicios populados del catálogo
-Shape mínimo:
+- [x] Auth: register / login JWT (`sub` = user id)
+- [x] `JwtAuthGuard` + rutas privadas de users
+- [x] `GET /users/me` enriquecido con `trainingProgram` + catálogo
+- [x] `PUT /users/:id/training-program` — agregar ejercicios (al inicio, skip duplicados)
+- [x] `PUT /users/:id/training-program/remove` — quitar por `exerciseId`
+- [x] Exercises: listado, filtros, labels, random, by id, search bilingüe
+- [x] `GET /exercises/recommend?zone=&equipment=` — presets por category + 4 slots
+- [x] `ZONE_PRESETS` en `src/exercises/constants/zone-presets.ts`
+- [x] User: campo `isPremium` (default `false` al crear)
+- [x] Log HTTP con `origin` (CORS debug) en `main.ts`
+- [x] `gym.exercises.json` en `.gitignore`
+- [x] Doc de diseño: `docs/recommend-workout.md`
 
-{
-  "id": "...",
-  "title": "...",
-  "notes": "...",
-  "coach": { "name": "..." },
-  "exercises": [
-    {
-      "assignmentId": "...",
-      "order": 1,
-      "sets": 3,
-      "reps": "8-10",
-      "rest": 90,
-      "notes": "...",
-      "exercise": { "id": "0001", "name": { "en": "...", "es": "..." }, "image": "...", "gif_url": "...", "category": "..." }
-    }
-  ]
-}
-Si no tiene plan → 404 o { "exercises": [] } (acordemos uno; el front se adapta)
+## Pendiente — back
 
-Después (coach, no urgente para el alumno)
-Crear/editar plan y asignar ejercicios (POST /programs, etc.)
-Puede ser seed/manual en Mongo al principio para probar el front
-Checklist corto para vos en el back
+- [ ] Endpoint admin / flujo para marcar `isPremium: true` (hoy solo a mano en DB)
+- [ ] Backfill opcional: setear `isPremium: false` en users viejos sin el campo
+- [ ] (Opcional) Soft-delete real: el repo filtra `deletedAt: null` pero el schema user no lo declara
+- [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata — ver conversación / diseño futuro
+- [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
 
- JWT en register + login (ya lo tenés)
+## Pendiente — front
 
- Guard Authorization en rutas privadas
+- [ ] Pantalla “Recomendar entrenamiento”: zona → equipo → lista de 4
+- [ ] CTA “Agregar al plan” usando `PUT /users/:id/training-program`
+- [ ] Quitar del plan con `PUT .../training-program/remove`
+- [ ] UI según `isPremium` (gates de features)
+- [ ] (Futuro) Apartado progreso + upload de fotos
 
- GET /me
+## Referencias rápidas
 
- Modelo programs + program_exercises (o embebido)
-
- GET /me/program con populate
-
- Un usuario de prueba con plan asignado
-Cuando eso esté, acá solo: mandar el Bearer en el client, llamar /me + /me/program al clickear Mi plan logueado, y pintar la vista.
+| Endpoint | Uso |
+|----------|-----|
+| `GET /exercises/labels` | zones ≈ `category`, equipos |
+| `GET /exercises/recommend?zone=back&equipment=barbell,dumbbell` | mini-rutina 4 ejercicios |
+| `PUT /users/:id/training-program` | body `{ exerciseIds: string[] }` |
+| `PUT /users/:id/training-program/remove` | body `{ exerciseId: string }` |
+| `GET /users/me` | perfil + plan enriquecido + `isPremium` |

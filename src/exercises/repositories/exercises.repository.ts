@@ -13,6 +13,20 @@ export type ExerciseFilters = {
   search?: string;
 };
 
+export type SampleOneFilters = {
+  category: string;
+  targets?: string[];
+  equipment?: string[];
+  excludeIds?: string[];
+};
+
+type SampleOneMatch = {
+  category: string;
+  target?: { $in: string[] };
+  equipment?: { $in: string[] };
+  id?: { $nin: string[] };
+};
+
 /** All exercise fields; instructions / instruction_steps only en + es. */
 const EXERCISE_PROJECTION = {
   id: 1,
@@ -118,6 +132,30 @@ export class ExercisesRepository {
         },
       )
       .exec();
+  }
+
+  async sampleOne(filters: SampleOneFilters): Promise<ExerciseDocument | null> {
+    const match: SampleOneMatch = { category: filters.category };
+
+    if (filters.targets?.length) {
+      match.target = { $in: filters.targets };
+    }
+    if (filters.equipment?.length) {
+      match.equipment = { $in: filters.equipment };
+    }
+    if (filters.excludeIds?.length) {
+      match.id = { $nin: filters.excludeIds };
+    }
+
+    const [exercise] = await this.exerciseModel
+      .aggregate<ExerciseDocument>([
+        { $match: match },
+        { $sample: { size: 1 } },
+        { $project: EXERCISE_PROJECTION },
+      ])
+      .exec();
+
+    return exercise ?? null;
   }
 
   private buildFilter(filters: ExerciseFilters) {

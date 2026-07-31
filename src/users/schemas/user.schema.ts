@@ -70,6 +70,13 @@ export class User {
   @Prop({ default: true })
   active: boolean;
 
+  @ApiProperty({
+    example: false,
+    description: 'Whether the user has premium access',
+  })
+  @Prop({ default: false })
+  isPremium: boolean;
+
   @ApiProperty({ type: [TrainingProgramExercise], default: [] })
   @Prop({ type: [TrainingProgramExercise], default: [] })
   trainingProgram: TrainingProgramExercise[];

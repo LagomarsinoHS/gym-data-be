@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -13,6 +14,11 @@ import {
   getExercisesQuerySchema,
 } from './dto/get-exercises-query.dto';
 import { PaginatedExercisesResponse } from './dto/paginated-exercises-response.dto';
+import {
+  RecommendExercisesQueryDto,
+  RecommendExercisesResponseDto,
+  recommendExercisesQuerySchema,
+} from './dto/recommend-exercises.dto';
 import { ExercisesService } from './exercises.service';
 import { Exercise } from './schemas/exercise.schema';
 
@@ -46,6 +52,22 @@ export class ExercisesController {
   @ApiNotFoundResponse({ description: 'No exercises found' })
   getRandomExercise(): Promise<Exercise> {
     return this.exercisesService.getRandomExercise();
+  }
+
+  @Get('recommend')
+  @ApiOperation({
+    summary: 'Recommend a mini workout for a zone and available equipment',
+    description:
+      'Uses zone presets (category + slot targets) to return distinct exercises with roles.',
+  })
+  @ApiOkResponse({ type: RecommendExercisesResponseDto })
+  @ApiBadRequestResponse({ description: 'Invalid zone or equipment' })
+  recommend(
+    @Query(new JoiValidationPipe(recommendExercisesQuerySchema))
+    query: RecommendExercisesQueryDto,
+  ): Promise<RecommendExercisesResponseDto> {
+    console.log(query);
+    return this.exercisesService.recommend(query);
   }
 
   @Get(':id')
