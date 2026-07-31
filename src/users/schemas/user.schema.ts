@@ -32,6 +32,17 @@ export class TrainingProgramExercise {
   notes?: string;
 }
 
+@Schema({ _id: false })
+export class PendingCoachInvite {
+  @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
+  @Prop({ required: true })
+  coachId: string;
+
+  @ApiProperty({ example: '2026-07-28T22:35:00.000Z' })
+  @Prop({ required: true })
+  invitedAt: Date;
+}
+
 @Schema({ timestamps: true, collection: 'users', id: false })
 export class User {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
@@ -89,6 +100,17 @@ export class User {
   })
   @Prop({ type: [TrainingProgramExercise], default: [] })
   coachTrainingProgram: TrainingProgramExercise[];
+
+  @ApiPropertyOptional({
+    nullable: true,
+    type: PendingCoachInvite,
+    example: {
+      coachId: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45',
+      invitedAt: '2026-07-28T22:35:00.000Z',
+    },
+  })
+  @Prop({ type: PendingCoachInvite, default: null })
+  pendingCoachInvite: PendingCoachInvite | null;
 
   @ApiProperty({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;

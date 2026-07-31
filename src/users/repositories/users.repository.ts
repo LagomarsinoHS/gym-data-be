@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
+  PendingCoachInvite,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -20,13 +21,42 @@ export class UsersRepository {
   }
 
   findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email }).exec();
+    return this.userModel.findOne({ email, deletedAt: null }).exec();
   }
 
   async create(user: CreateUserData): Promise<Omit<User, 'password'>> {
     const created = await this.userModel.create(user);
     const { password: _password, ...safeUser } = created.toObject();
     return safeUser;
+  }
+
+  async setPendingCoachInvite(
+    userId: string,
+    invite: PendingCoachInvite,
+  ): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: userId, deletedAt: null },
+        { $set: { pendingCoachInvite: invite } },
+      )
+      .exec();
+  }
+
+  async clearPendingCoachInvite(
+    userId: string,
+    accept: boolean,
+    coachId: string,
+  ): Promise<void> {
+    const $set: { pendingCoachInvite: null; coachId?: string } = {
+      pendingCoachInvite: null,
+    };
+    if (accept) {
+      $set.coachId = coachId;
+    }
+
+    await this.userModel
+      .updateOne({ id: userId, deletedAt: null }, { $set })
+      .exec();
   }
 
   async addToTrainingProgram(

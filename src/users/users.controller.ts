@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Put,
@@ -10,6 +12,8 @@ import {
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -25,7 +29,16 @@ import {
   AddTrainingProgramDto,
   addTrainingProgramSchema,
 } from './dto/add-training-program.dto';
+import {
+  CreateCoachInviteDto,
+  createCoachInviteSchema,
+} from './dto/create-coach-invite.dto';
 import { MeResponseDto } from './dto/me-response.dto';
+import { OkResponseDto } from './dto/ok-response.dto';
+import {
+  RespondCoachInviteDto,
+  respondCoachInviteSchema,
+} from './dto/respond-coach-invite.dto';
 import {
   RemoveTrainingProgramDto,
   removeTrainingProgramSchema,
@@ -63,6 +76,47 @@ export class UsersController {
   }
 
   // --- POST ---
+
+  @Post('coach/invites')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Invite an athlete by email',
+    description:
+      'Sets pendingCoachInvite on the athlete with the authenticated coach id.',
+  })
+  @ApiBody({ type: CreateCoachInviteDto })
+  @ApiCreatedResponse({ type: OkResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'Athlete not found for that email' })
+  @ApiConflictResponse({
+    description: 'Athlete already has a pending invitation',
+  })
+  createCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(createCoachInviteSchema))
+    dto: CreateCoachInviteDto,
+  ): Promise<OkResponseDto> {
+    return this.usersService.createCoachInvite(user.userId, dto.email);
+  }
+
+  @Post('coach/invites/respond')
+  @ApiOperation({
+    summary: 'Accept or reject a pending coach invitation',
+    description:
+      'Accept assigns coachId from the invite (replacing any previous coach) and clears pendingCoachInvite. Reject only clears the invite.',
+  })
+  @ApiBody({ type: RespondCoachInviteDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiConflictResponse({ description: 'No pending coach invitation' })
+  respondToCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(respondCoachInviteSchema))
+    dto: RespondCoachInviteDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.respondToCoachInvite(user.userId, dto.action);
+  }
 
   @Post('training-program')
   @ApiOperation({

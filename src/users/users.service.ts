@@ -1,14 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersRepository } from './repositories/users.repository';
 import {
+  PendingCoachInvite,
   TrainingProgramExercise,
   User,
   UserDocument,
 } from './schemas/user.schema';
 import { CreateUserData } from './types/create-user-data.type';
-import { MeResponseDto, MeTrainingProgramItemDto } from './dto/me-response.dto';
+import {
+  MePendingCoachInviteDto,
+  MeResponseDto,
+  MeTrainingProgramItemDto,
+} from './dto/me-response.dto';
+import { OkResponseDto } from './dto/ok-response.dto';
+import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
+import { Role } from './types/role.enum';
 
 @Injectable()
 export class UsersService {
@@ -32,8 +44,13 @@ export class UsersService {
   async getEnrichedUserById(id: string): Promise<MeResponseDto> {
     const user = await this.findByIdOrFail(id);
 
-    const { password, trainingProgram, coachTrainingProgram, ...safeUser } =
-      user.toObject();
+    const {
+      password,
+      trainingProgram,
+      coachTrainingProgram,
+      pendingCoachInvite,
+      ...safeUser
+    } = user.toObject();
 
     const ids = [
       ...trainingProgram.map((item) => item.exerciseId),
@@ -42,11 +59,57 @@ export class UsersService {
     const catalog = await this.exercisesService.getExercisesByIds(ids);
     const byId = new Map(catalog.map((e) => [e.id, e]));
 
+    const coach = pendingCoachInvite
+      ? await this.usersRepository.findById(pendingCoachInvite.coachId)
+      : null;
+
     return {
       ...safeUser,
       trainingProgram: enrichTrainingProgram(trainingProgram, byId),
       coachTrainingProgram: enrichTrainingProgram(coachTrainingProgram, byId),
+      pendingCoachInvite: enrichPendingCoachInvite(pendingCoachInvite, coach),
     };
+  }
+
+  async createCoachInvite(
+    coachId: string,
+    email: string,
+  ): Promise<OkResponseDto> {
+    const athlete = await this.usersRepository.findByEmail(email);
+
+    if (!athlete || athlete.role !== Role.Athlete) {
+      throw new NotFoundException('No athlete found with that email');
+    }
+
+    if (athlete.pendingCoachInvite) {
+      throw new ConflictException('This athlete has a pending invitation');
+    }
+
+    await this.usersRepository.setPendingCoachInvite(athlete.id, {
+      coachId,
+      invitedAt: new Date(),
+    });
+
+    return { ok: true };
+  }
+
+  async respondToCoachInvite(
+    userId: string,
+    action: CoachInviteResponseAction,
+  ): Promise<MeResponseDto> {
+    const user = await this.findByIdOrFail(userId);
+
+    if (!user.pendingCoachInvite) {
+      throw new ConflictException('No pending coach invitation');
+    }
+
+    await this.usersRepository.clearPendingCoachInvite(
+      userId,
+      action === CoachInviteResponseAction.Accept,
+      user.pendingCoachInvite.coachId,
+    );
+
+    return this.getEnrichedUserById(userId);
   }
 
   async addToTrainingProgram(
@@ -132,4 +195,20 @@ function enrichTrainingProgram(
       },
     ];
   });
+}
+
+function enrichPendingCoachInvite(
+  invite: PendingCoachInvite | null | undefined,
+  coach: Pick<User, 'firstName' | 'lastName'> | null,
+): MePendingCoachInviteDto | null {
+  if (!invite || !coach) return null;
+
+  return {
+    coachId: invite.coachId,
+    invitedAt: invite.invitedAt,
+    coach: {
+      firstName: coach.firstName,
+      lastName: coach.lastName,
+    },
+  };
 }
