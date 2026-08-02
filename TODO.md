@@ -22,6 +22,7 @@
 - [x] `PUT /users/coach/athletes/:athleteId/training-program` — replace sesiones
 - [x] `POST /users/coach/training-program/export` — Excel / zip binary + CORS `Content-Disposition`
 
+> FE: menú de cuenta (iniciales + dropdown). **Mi perfil** / **Configuración** quedan deshabilitados hasta cablear vistas + endpoints de abajo.
 ## Pendiente — back
 
 - [ ] `RolesGuard` + `@Roles(...)`: `coach/*` → coach; `me/pending-coach-invite*` → athlete (JWT con `role` o lookup). Ownership en service queda.
@@ -31,6 +32,8 @@
 - [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
+- [ ] **Mi perfil** — `PATCH` (o similar) para actualizar nombre / datos editables del user
+- [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
 
 ## Referencias rápidas
 

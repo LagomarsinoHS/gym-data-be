@@ -164,6 +164,8 @@ Las imágenes/gifs viven como estáticos en el frontend (`public/images`, `publi
 
 Fuente de verdad de forma: Swagger en `/docs`. Pendientes: [`TODO.md`](./TODO.md).
 
+`GET /users/me` alcanza para chrome de sesión. A futuro (ítems de menú **Mi perfil** / **Configuración** en el FE, hoy deshabilitados): update de perfil y preferencias.
+
 | Método | Path | Notas |
 |--------|------|--------|
 | `GET` | `/users/me` | Perfil + programs enriquecidos (sin invite) |
@@ -171,7 +173,7 @@ Fuente de verdad de forma: Swagger en `/docs`. Pendientes: [`TODO.md`](./TODO.md
 | `POST` | `/users/coach/invites` | Invite por email exacto → colección `invites` |
 | `POST` | `/users/me/pending-coach-invite/respond` | accept / reject |
 | `GET` | `/users/coach/athletes` | Alumnos del coach (paginado) |
-| `GET` | `/users/coach/invites` | Historial invites (`status` opcional) |
+| `GET` | `/users/coach/invites` | Historial invites (`status` opcional, page, limit) |
 | `PUT` | `/users/coach/athletes/:id/training-program` | Replace `coachTrainingProgram` |
 | `POST` | `/users/coach/training-program/export` | Excel/zip binary |
 
