@@ -22,6 +22,7 @@ import {
   MeTrainingProgramItemDto,
   PendingCoachInviteResponseDto,
 } from './dto/me-response.dto';
+import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
 import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
@@ -74,6 +75,46 @@ export class UsersService {
     const data = await Promise.all(
       athletes.map((athlete) => this.getEnrichedUserById(athlete.id)),
     );
+
+    return { data, total };
+  }
+
+  async getCoachInvites(
+    coachId: string,
+    page: number,
+    limit: number,
+    status?: InviteStatus,
+  ): Promise<{ data: CoachInviteListItemDto[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const { invites, total } = await this.invitesRepository.findByCoachId(
+      coachId,
+      skip,
+      limit,
+      status,
+    );
+
+    const athletes = await this.usersRepository.findByIds(
+      invites.map((invite) => invite.athleteId),
+    );
+    const athleteById = new Map(athletes.map((a) => [a.id, a]));
+
+    const data = invites.map((invite) => {
+      const athlete = athleteById.get(invite.athleteId);
+      return {
+        id: invite.id,
+        athleteId: invite.athleteId,
+        email: invite.email,
+        status: invite.status,
+        invitedAt: invite.invitedAt,
+        respondedAt: invite.respondedAt ?? null,
+        athlete: athlete
+          ? {
+              firstName: athlete.firstName,
+              lastName: athlete.lastName,
+            }
+          : null,
+      };
+    });
 
     return { data, total };
   }

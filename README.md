@@ -171,6 +171,7 @@ Fuente de verdad de forma: Swagger en `/docs`. Pendientes: [`TODO.md`](./TODO.md
 | `POST` | `/users/coach/invites` | Invite por email exacto → colección `invites` |
 | `POST` | `/users/me/pending-coach-invite/respond` | accept / reject |
 | `GET` | `/users/coach/athletes` | Alumnos del coach (paginado) |
+| `GET` | `/users/coach/invites` | Historial invites (`status` opcional) |
 | `PUT` | `/users/coach/athletes/:id/training-program` | Replace `coachTrainingProgram` |
 | `POST` | `/users/coach/training-program/export` | Excel/zip binary |
 

@@ -13,18 +13,18 @@
 - [x] `GET /exercises/recommend?zone=&equipment=` — presets por category + 4 slots
 - [x] User: `isPremium`, `role`, `coachId`, `coachTrainingProgram` (sesiones)
 - [x] Register acepta `role: athlete | coach` (admin solo DB)
-- [x] Colección **`invites`** (1 doc = 1 invite; status pending/accepted/rejected)
+- [x] Colección **`invites`** (1 doc = 1 invite; status pending/accepted/rejected/cancelled)
 - [x] `POST /users/coach/invites` — create pending invite
 - [x] `POST /users/me/pending-coach-invite/respond` — accept (set `coachId`) / reject
 - [x] `GET /users/me/pending-coach-invite` — `{ invite: null | {...} }` (máx. 1 pendiente atleta)
 - [x] `GET /users/coach/athletes` — alumnos del coach (paginado)
+- [x] `GET /users/coach/invites` — historial invites (filtro `status` opcional, paginado)
 - [x] `PUT /users/coach/athletes/:athleteId/training-program` — replace sesiones
 - [x] `POST /users/coach/training-program/export` — Excel / zip binary + CORS `Content-Disposition`
 
 ## Pendiente — back
 
 - [ ] `RolesGuard` + `@Roles(...)`: `coach/*` → coach; `me/pending-coach-invite*` → athlete (JWT con `role` o lookup). Ownership en service queda.
-- [ ] `GET /users/coach/invites?status=pending` — lista para Panel del coach
 - [ ] Endpoint admin / flujo para marcar `isPremium: true` (hoy solo a mano en DB)
 - [ ] Backfill opcional: setear `isPremium: false` en users viejos sin el campo
 - [ ] (Opcional) Soft-delete: endpoint/deactivate que setee `deletedAt` (filtro + schema ya listos)
@@ -41,6 +41,7 @@
 | `POST /users/coach/invites` | body `{ email }` |
 | `POST /users/me/pending-coach-invite/respond` | body `{ action: 'accept' \| 'reject' }` |
 | `GET /users/coach/athletes` | pagina alumnos del coach |
+| `GET /users/coach/invites` | historial invites (`status?`, page, limit) |
 | `PUT /users/coach/athletes/:id/training-program` | body `{ coachTrainingProgram }` |
 | `POST /users/coach/training-program/export` | body `{ athleteIds, locale }` → file |
 | `GET /exercises/labels` | zones ≈ `category`, equipos |

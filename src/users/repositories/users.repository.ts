@@ -31,6 +31,13 @@ export class UsersRepository {
     return this.userModel.findOne({ id, ...NOT_DELETED }).exec();
   }
 
+  findByIds(ids: string[]): Promise<UserDocument[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.userModel
+      .find({ id: { $in: [...new Set(ids)] }, ...NOT_DELETED })
+      .exec();
+  }
+
   findByEmail(email: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ email, ...NOT_DELETED }).exec();
   }

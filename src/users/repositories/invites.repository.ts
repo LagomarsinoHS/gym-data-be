@@ -31,6 +31,28 @@ export class InvitesRepository {
       .exec();
   }
 
+  async findByCoachId(
+    coachId: string,
+    skip: number,
+    limit: number,
+    status?: InviteStatus,
+  ): Promise<{ invites: InviteDocument[]; total: number }> {
+    const filter: { coachId: string; status?: InviteStatus } = { coachId };
+    if (status) filter.status = status;
+
+    const [invites, total] = await Promise.all([
+      this.inviteModel
+        .find(filter)
+        .sort({ invitedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.inviteModel.countDocuments(filter).exec(),
+    ]);
+
+    return { invites, total };
+  }
+
   findPendingByAthleteId(athleteId: string): Promise<InviteDocument | null> {
     return this.inviteModel
       .findOne({ athleteId, status: InviteStatus.Pending })

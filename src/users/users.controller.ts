@@ -47,6 +47,11 @@ import {
   getCoachAthletesQuerySchema,
 } from './dto/get-coach-athletes-query.dto';
 import {
+  GetCoachInvitesQueryDto,
+  getCoachInvitesQuerySchema,
+} from './dto/get-coach-invites-query.dto';
+import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
+import {
   MeResponseDto,
   PendingCoachInviteResponseDto,
 } from './dto/me-response.dto';
@@ -139,6 +144,30 @@ export class UsersController {
       query.page,
       query.limit,
       query.search,
+    );
+
+    return new PaginatedResponse(data, query.page, query.limit, total);
+  }
+
+  // Requires Role.Coach (TODO: RolesGuard)
+  @Get('coach/invites')
+  @ApiOperation({
+    summary: 'List invite history for the authenticated coach',
+    description:
+      'Full invite history (pending, accepted, rejected, cancelled). Optional status filter. Newest first.',
+  })
+  @ApiOkResponse({ type: PaginatedResponse })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  async getCoachInvites(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new JoiValidationPipe(getCoachInvitesQuerySchema))
+    query: GetCoachInvitesQueryDto,
+  ): Promise<PaginatedResponse<CoachInviteListItemDto>> {
+    const { data, total } = await this.usersService.getCoachInvites(
+      user.userId,
+      query.page,
+      query.limit,
+      query.status,
     );
 
     return new PaginatedResponse(data, query.page, query.limit, total);
