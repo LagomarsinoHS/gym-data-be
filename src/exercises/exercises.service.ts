@@ -71,7 +71,6 @@ export class ExercisesService {
     const slots = preset.slots;
     const excludeIds: string[] = [];
     const exercises: RecommendedExerciseDto[] = [];
-    console.log({ slots });
 
     for (const slot of slots) {
       const picked = await this.pickForSlot({

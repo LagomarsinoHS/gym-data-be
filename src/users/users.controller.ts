@@ -86,6 +86,7 @@ export class UsersController {
     return this.usersService.getEnrichedUserById(user.userId);
   }
 
+  // Requires Role.Athlete (TODO: RolesGuard)
   @Get('me/pending-coach-invite')
   @ApiOperation({
     summary: 'Get the athlete pending coach invitation',
@@ -100,6 +101,27 @@ export class UsersController {
     return this.usersService.getPendingCoachInvite(user.userId);
   }
 
+  // Requires Role.Athlete (TODO: RolesGuard)
+  @Post('me/pending-coach-invite/respond')
+  @ApiOperation({
+    summary: 'Accept or reject a pending coach invitation',
+    description:
+      'Looks up the pending Invite for the authenticated athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
+  })
+  @ApiBody({ type: RespondCoachInviteDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiConflictResponse({ description: 'No pending coach invitation' })
+  respondToCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(respondCoachInviteSchema))
+    dto: RespondCoachInviteDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.respondToCoachInvite(user.userId, dto.action);
+  }
+
+  // Requires Role.Coach (TODO: RolesGuard)
   @Get('coach/athletes')
   @ApiOperation({
     summary: 'List athletes assigned to the authenticated coach',
@@ -133,6 +155,7 @@ export class UsersController {
 
   // --- POST ---
 
+  // Requires Role.Coach (TODO: RolesGuard)
   @Post('coach/training-program/export')
   @ApiOperation({
     summary: 'Export coach training programs as Excel (or ZIP)',
@@ -166,6 +189,7 @@ export class UsersController {
     });
   }
 
+  // Requires Role.Coach (TODO: RolesGuard)
   @Post('coach/invites')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
@@ -188,25 +212,6 @@ export class UsersController {
     return this.usersService.createCoachInvite(user.userId, dto.email);
   }
 
-  @Post('coach/invites/respond')
-  @ApiOperation({
-    summary: 'Accept or reject a pending coach invitation',
-    description:
-      'Looks up the pending Invite for the athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
-  })
-  @ApiBody({ type: RespondCoachInviteDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  @ApiConflictResponse({ description: 'No pending coach invitation' })
-  respondToCoachInvite(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(respondCoachInviteSchema))
-    dto: RespondCoachInviteDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.respondToCoachInvite(user.userId, dto.action);
-  }
-
   @Post('training-program')
   @ApiOperation({
     summary: 'Add exercises to the authenticated user training program',
@@ -227,6 +232,7 @@ export class UsersController {
 
   // --- PUT ---
 
+  // Requires Role.Coach (TODO: RolesGuard)
   @Put('coach/athletes/:athleteId/training-program')
   @ApiOperation({
     summary: 'Replace an athlete coach training program',

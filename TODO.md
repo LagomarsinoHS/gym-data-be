@@ -15,7 +15,7 @@
 - [x] Register acepta `role: athlete | coach` (admin solo DB)
 - [x] Colección **`invites`** (1 doc = 1 invite; status pending/accepted/rejected)
 - [x] `POST /users/coach/invites` — create pending invite
-- [x] `POST /users/coach/invites/respond` — accept (set `coachId`) / reject
+- [x] `POST /users/me/pending-coach-invite/respond` — accept (set `coachId`) / reject
 - [x] `GET /users/me/pending-coach-invite` — `{ invite: null | {...} }` (máx. 1 pendiente atleta)
 - [x] `GET /users/coach/athletes` — alumnos del coach (paginado)
 - [x] `PUT /users/coach/athletes/:athleteId/training-program` — replace sesiones
@@ -23,10 +23,11 @@
 
 ## Pendiente — back
 
+- [ ] `RolesGuard` + `@Roles(...)`: `coach/*` → coach; `me/pending-coach-invite*` → athlete (JWT con `role` o lookup). Ownership en service queda.
 - [ ] `GET /users/coach/invites?status=pending` — lista para Panel del coach
 - [ ] Endpoint admin / flujo para marcar `isPremium: true` (hoy solo a mano en DB)
 - [ ] Backfill opcional: setear `isPremium: false` en users viejos sin el campo
-- [ ] (Opcional) Soft-delete real: el repo filtra `deletedAt: null` pero el schema user no lo declara
+- [ ] (Opcional) Soft-delete: endpoint/deactivate que setee `deletedAt` (filtro + schema ya listos)
 - [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
@@ -38,7 +39,7 @@
 | `GET /users/me` | perfil + programs enriquecidos + `isPremium` + `role` + `coachId` |
 | `GET /users/me/pending-coach-invite` | `{ invite: null \| PendingInvite }` |
 | `POST /users/coach/invites` | body `{ email }` |
-| `POST /users/coach/invites/respond` | body `{ action: 'accept' \| 'reject' }` |
+| `POST /users/me/pending-coach-invite/respond` | body `{ action: 'accept' \| 'reject' }` |
 | `GET /users/coach/athletes` | pagina alumnos del coach |
 | `PUT /users/coach/athletes/:id/training-program` | body `{ coachTrainingProgram }` |
 | `POST /users/coach/training-program/export` | body `{ athleteIds, locale }` → file |

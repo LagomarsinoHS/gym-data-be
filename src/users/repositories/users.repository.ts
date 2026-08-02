@@ -10,10 +10,13 @@ import {
 import { CreateUserData } from '../types/create-user-data.type';
 import { Role } from '../types/role.enum';
 
+/** Active users: soft-delete field must be absent (never stored as null). */
+const NOT_DELETED = { deletedAt: { $exists: false } } as const;
+
 type AthletesByCoachFilter = {
   role: Role;
   coachId: string;
-  deletedAt: null;
+  deletedAt: { $exists: false };
   $or?: Array<{ firstName: RegExp } | { lastName: RegExp } | { email: RegExp }>;
 };
 
@@ -25,11 +28,11 @@ export class UsersRepository {
   ) {}
 
   findById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ id, deletedAt: null }).exec();
+    return this.userModel.findOne({ id, ...NOT_DELETED }).exec();
   }
 
   findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email, deletedAt: null }).exec();
+    return this.userModel.findOne({ email, ...NOT_DELETED }).exec();
   }
 
   findAthletesByCoachId(
@@ -87,7 +90,7 @@ export class UsersRepository {
   ): Promise<void> {
     await this.userModel
       .updateOne(
-        { id: athleteId, deletedAt: null },
+        { id: athleteId, ...NOT_DELETED },
         { $set: { coachTrainingProgram } },
       )
       .exec();
@@ -104,7 +107,7 @@ export class UsersRepository {
     if (!accept) return;
 
     await this.userModel
-      .updateOne({ id: athleteId, deletedAt: null }, { $set: { coachId } })
+      .updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachId } })
       .exec();
   }
 
@@ -114,7 +117,7 @@ export class UsersRepository {
   ): Promise<void> {
     await this.userModel
       .updateOne(
-        { id: userId, deletedAt: null },
+        { id: userId, ...NOT_DELETED },
         { $push: { trainingProgram: { $each: items, $position: 0 } } },
       )
       .exec();
@@ -126,7 +129,7 @@ export class UsersRepository {
   ): Promise<void> {
     await this.userModel
       .updateOne(
-        { id: userId, deletedAt: null },
+        { id: userId, ...NOT_DELETED },
         { $pull: { trainingProgram: { exerciseId } } },
       )
       .exec();
@@ -157,7 +160,7 @@ export class UsersRepository {
       .updateOne(
         {
           id: userId,
-          deletedAt: null,
+          ...NOT_DELETED,
           'trainingProgram.exerciseId': exerciseId,
         },
         { $set },
@@ -174,7 +177,7 @@ export class UsersRepository {
     const filter: AthletesByCoachFilter = {
       role: Role.Athlete,
       coachId,
-      deletedAt: null,
+      ...NOT_DELETED,
     };
 
     if (search) {

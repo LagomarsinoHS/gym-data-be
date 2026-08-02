@@ -109,6 +109,14 @@ export class User {
   @Prop({ type: [CoachTrainingProgram], default: [] })
   coachTrainingProgram: CoachTrainingProgram[];
 
+  @ApiPropertyOptional({
+    example: '2026-08-02T18:00:00.000Z',
+    description:
+      'Present only when the user was soft-deleted. Active users omit this field.',
+  })
+  @Prop({ type: Date, required: false })
+  deletedAt?: Date;
+
   @ApiProperty({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;
 

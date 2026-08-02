@@ -68,7 +68,6 @@ export class ExercisesController {
     @Query(new JoiValidationPipe(recommendExercisesQuerySchema))
     query: RecommendExercisesQueryDto,
   ): Promise<RecommendExercisesResponseDto> {
-    console.log(query);
     return this.exercisesService.recommend(query);
   }
 
