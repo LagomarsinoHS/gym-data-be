@@ -46,7 +46,10 @@ import {
   GetCoachAthletesQueryDto,
   getCoachAthletesQuerySchema,
 } from './dto/get-coach-athletes-query.dto';
-import { MeResponseDto } from './dto/me-response.dto';
+import {
+  MeResponseDto,
+  PendingCoachInviteResponseDto,
+} from './dto/me-response.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import {
   RespondCoachInviteDto,
@@ -81,6 +84,20 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   getMe(@CurrentUser() user: AuthenticatedUser): Promise<MeResponseDto> {
     return this.usersService.getEnrichedUserById(user.userId);
+  }
+
+  @Get('me/pending-coach-invite')
+  @ApiOperation({
+    summary: 'Get the athlete pending coach invitation',
+    description:
+      'Reads from the invites collection. Always returns { invite }. invite is null when there is none (or the caller is not an athlete). At most one pending invite per athlete.',
+  })
+  @ApiOkResponse({ type: PendingCoachInviteResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  getPendingCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PendingCoachInviteResponseDto> {
+    return this.usersService.getPendingCoachInvite(user.userId);
   }
 
   @Get('coach/athletes')
@@ -154,7 +171,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Invite an athlete by email',
     description:
-      'Sets pendingCoachInvite on the athlete with the authenticated coach id.',
+      'Creates a pending Invite for the athlete with the authenticated coach id.',
   })
   @ApiBody({ type: CreateCoachInviteDto })
   @ApiCreatedResponse({ type: OkResponseDto })
@@ -175,7 +192,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Accept or reject a pending coach invitation',
     description:
-      'Accept assigns coachId from the invite (replacing any previous coach) and clears pendingCoachInvite. Reject only clears the invite.',
+      'Looks up the pending Invite for the athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
   })
   @ApiBody({ type: RespondCoachInviteDto })
   @ApiOkResponse({ type: MeResponseDto })

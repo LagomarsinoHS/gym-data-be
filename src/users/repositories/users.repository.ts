@@ -3,7 +3,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   CoachTrainingProgram,
-  PendingCoachInvite,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -82,18 +81,6 @@ export class UsersRepository {
     return safeUser;
   }
 
-  async setPendingCoachInvite(
-    userId: string,
-    invite: PendingCoachInvite,
-  ): Promise<void> {
-    await this.userModel
-      .updateOne(
-        { id: userId, deletedAt: null },
-        { $set: { pendingCoachInvite: invite } },
-      )
-      .exec();
-  }
-
   async setCoachTrainingProgram(
     athleteId: string,
     coachTrainingProgram: CoachTrainingProgram[],
@@ -106,20 +93,18 @@ export class UsersRepository {
       .exec();
   }
 
-  async clearPendingCoachInvite(
-    userId: string,
+  /**
+   * Assign coach on accept. Reject only updates the Invite row (no user change).
+   */
+  async applyCoachInviteResponse(
+    athleteId: string,
     accept: boolean,
     coachId: string,
   ): Promise<void> {
-    const $set: { pendingCoachInvite: null; coachId?: string } = {
-      pendingCoachInvite: null,
-    };
-    if (accept) {
-      $set.coachId = coachId;
-    }
+    if (!accept) return;
 
     await this.userModel
-      .updateOne({ id: userId, deletedAt: null }, { $set })
+      .updateOne({ id: athleteId, deletedAt: null }, { $set: { coachId } })
       .exec();
   }
 

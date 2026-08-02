@@ -160,23 +160,38 @@ const gifUrl = `/${exercise.gif_url}`   // /videos/0001-xxx.gif
 
 Las imágenes/gifs viven como estáticos en el frontend (`public/images`, `public/videos`), no en este API.
 
+### Users / coach (resumen)
+
+Fuente de verdad de forma: Swagger en `/docs`. Pendientes: [`TODO.md`](./TODO.md).
+
+| Método | Path | Notas |
+|--------|------|--------|
+| `GET` | `/users/me` | Perfil + programs enriquecidos (sin invite) |
+| `GET` | `/users/me/pending-coach-invite` | `{ invite: null \| {...} }` |
+| `POST` | `/users/coach/invites` | Invite por email exacto → colección `invites` |
+| `POST` | `/users/coach/invites/respond` | accept / reject |
+| `GET` | `/users/coach/athletes` | Alumnos del coach (paginado) |
+| `PUT` | `/users/coach/athletes/:id/training-program` | Replace `coachTrainingProgram` |
+| `POST` | `/users/coach/training-program/export` | Excel/zip binary |
+
 ## Estructura
 
 ```text
 src/
+  auth/                  # JWT login / register
   common/
     dto/                 # PaginatedResponse
     pipes/               # JoiValidationPipe
   database/              # Conexión Mongo (DatabaseModule)
+  excel/ · zip/          # Export de pautas
   exercises/
-    dto/                 # Query + response DTOs
-    repositories/        # Acceso a datos
-    schemas/             # Schema Mongoose
-    exercises.controller.ts
-    exercises.service.ts
-    exercises.module.ts
+    dto/ · repositories/ · schemas/
+    exercises.controller.ts · service · module
+  users/
+    dto/ · repositories/ · schemas/  # User + Invite
+    users.controller.ts · service · module
   app.module.ts
-  main.ts                # CORS, Swagger, Morgan
+  main.ts                # CORS (exposedHeaders Content-Disposition), Swagger, Morgan
 ```
 
 Flujo típico:

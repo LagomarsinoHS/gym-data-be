@@ -4,64 +4,46 @@
 
 - [x] Auth: register / login JWT (`sub` = user id)
 - [x] `JwtAuthGuard` + rutas privadas de users
-- [x] `GET /users/me` enriquecido con `trainingProgram` + catálogo
+- [x] `GET /users/me` enriquecido con `trainingProgram` + `coachTrainingProgram` + catálogo  
+  (**sin** invite embebido; invite va en endpoint aparte)
 - [x] `POST /users/training-program` — agregar ejercicios (al inicio, skip duplicados)
 - [x] `PUT /users/training-program/remove` — quitar por `exerciseId`
+- [x] `PUT /users/training-program/:exerciseId` — editar sets/reps/rest/notes
 - [x] Exercises: listado, filtros, labels, random, by id, search bilingüe
 - [x] `GET /exercises/recommend?zone=&equipment=` — presets por category + 4 slots
-- [x] `ZONE_PRESETS` en `src/exercises/constants/zone-presets.ts`
-- [x] User: campo `isPremium` (default `false` al crear)
-- [x] User: campo `coachTrainingProgram` (default `[]`, para plan del coach a futuro)
-- [x] `PUT /users/training-program/:exerciseId` — editar sets/reps/rest/notes del plan self-serve
-- [x] Log HTTP con `origin` (CORS debug) en `main.ts`
-- [x] `gym.exercises.json` en `.gitignore`
-- [x] Doc de diseño: `docs/recommend-workout.md`
-- [x] User: `role` (athlete | coach | admin) + `coachId`
+- [x] User: `isPremium`, `role`, `coachId`, `coachTrainingProgram` (sesiones)
 - [x] Register acepta `role: athlete | coach` (admin solo DB)
+- [x] Colección **`invites`** (1 doc = 1 invite; status pending/accepted/rejected)
+- [x] `POST /users/coach/invites` — create pending invite
+- [x] `POST /users/coach/invites/respond` — accept (set `coachId`) / reject
+- [x] `GET /users/me/pending-coach-invite` — `{ invite: null | {...} }` (máx. 1 pendiente atleta)
+- [x] `GET /users/coach/athletes` — alumnos del coach (paginado)
+- [x] `PUT /users/coach/athletes/:athleteId/training-program` — replace sesiones
+- [x] `POST /users/coach/training-program/export` — Excel / zip binary + CORS `Content-Disposition`
 
 ## Pendiente — back
 
+- [ ] `GET /users/coach/invites?status=pending` — lista para Panel del coach
 - [ ] Endpoint admin / flujo para marcar `isPremium: true` (hoy solo a mano en DB)
 - [ ] Backfill opcional: setear `isPremium: false` en users viejos sin el campo
 - [ ] (Opcional) Soft-delete real: el repo filtra `deletedAt: null` pero el schema user no lo declara
-- [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata — ver conversación / diseño futuro
+- [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
-
-### Módulo Coach — vincular atleta (“Unir atleta”)
-
-- [ ] Endpoint coach: asignar atleta → setea `coachId` en el usuario atleta
-- [ ] **No** autocomplete parcial por email/nombre (3 letras): filtra usuarios y filtra PII
-- [ ] Preferir: match por **email exacto** + confirmación, o **código de invitación** / solicitud que el atleta acepta
-- [ ] Listar alumnos del coach: `GET` athletes where `coachId === me.id` (shape mínimo: id, name, email)
-
-### Módulo Coach — plan asignado (después)
-
-- [ ] Modelo de plan por bloques (Lun/Mié/Vie) **o** por sesiones (Sesión 1, 2…) a elegir
-- [ ] CRUD plan asignado al alumno + ejercicios por bloque/sesión
-
-## Pendiente — front
-
-- [x] Pantalla “Recomendar entrenamiento”: zona → equipo → lista
-- [x] UI según `isPremium` (gate recommend)
-- [x] Nav por rol (athlete / coach) + badge de rol
-- [x] Register: selector Atleta / Entrenador
-- [ ] CTA “Agregar al plan” desde recommend → `POST /users/training-program`
-- [ ] (Futuro) Apartado progreso + upload de fotos
-
-### Coach — Mis alumnos (incremental)
-
-- [ ] Vista Mis alumnos: toolbar + lista (acordeón, no cards) + empty state
-- [ ] Botón “Agregar alumno” dentro de la vista (no item de nav aparte)
-- [ ] Flujo Unir atleta (email exacto / invite) cuando exista API
-- [ ] Detalle alumno: agregar/editar entrenamiento (bloques o sesiones)
+- [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
 
 ## Referencias rápidas
 
 | Endpoint | Uso |
 |----------|-----|
+| `GET /users/me` | perfil + programs enriquecidos + `isPremium` + `role` + `coachId` |
+| `GET /users/me/pending-coach-invite` | `{ invite: null \| PendingInvite }` |
+| `POST /users/coach/invites` | body `{ email }` |
+| `POST /users/coach/invites/respond` | body `{ action: 'accept' \| 'reject' }` |
+| `GET /users/coach/athletes` | pagina alumnos del coach |
+| `PUT /users/coach/athletes/:id/training-program` | body `{ coachTrainingProgram }` |
+| `POST /users/coach/training-program/export` | body `{ athleteIds, locale }` → file |
 | `GET /exercises/labels` | zones ≈ `category`, equipos |
 | `GET /exercises/recommend?zone=back&equipment=barbell,dumbbell` | mini-rutina 4 ejercicios |
 | `POST /users/training-program` | body `{ exerciseIds: string[] }` |
 | `PUT /users/training-program/remove` | body `{ exerciseId: string }` |
 | `PUT /users/training-program/:exerciseId` | body `{ sets?, reps?, rest?, notes? }` |
-| `GET /users/me` | perfil + plan enriquecido + `isPremium` + `role` + `coachId` |

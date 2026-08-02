@@ -4,20 +4,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { UsersRepository } from './repositories/users.repository';
+import { InvitesRepository } from './repositories/invites.repository';
 import {
   CoachTrainingProgram,
-  PendingCoachInvite,
   TrainingProgramExercise,
   User,
   UserDocument,
 } from './schemas/user.schema';
+import type { Invite } from './schemas/invite.schema';
 import { CreateUserData } from './types/create-user-data.type';
 import {
   MeCoachTrainingProgramDto,
   MePendingCoachInviteDto,
   MeResponseDto,
   MeTrainingProgramItemDto,
+  PendingCoachInviteResponseDto,
 } from './dto/me-response.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
@@ -33,6 +36,7 @@ import type { AthleteTrainingProgramExport } from '../excel/types/athlete-traini
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
 import { ZipService } from '../zip/zip.service';
+import { InviteStatus } from './types/invite-status.enum';
 import { Role } from './types/role.enum';
 
 export type CoachTrainingProgramExportFile = {
@@ -45,6 +49,7 @@ export type CoachTrainingProgramExportFile = {
 export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
+    private readonly invitesRepository: InvitesRepository,
     private readonly exercisesService: ExercisesService,
     private readonly excelService: ExcelService,
     private readonly zipService: ZipService,
@@ -77,12 +82,11 @@ export class UsersService {
     const user = await this.findByIdOrFail(id);
 
     const {
-      password,
+      password: _password,
       trainingProgram,
       coachTrainingProgram,
-      pendingCoachInvite,
       ...safeUser
-    } = user.toObject();
+    } = user.toObject() as User & { password: string };
 
     const ids = [
       ...trainingProgram.map((item) => item.exerciseId),
@@ -93,10 +97,6 @@ export class UsersService {
     const catalog = await this.exercisesService.getExercisesByIds(ids);
     const byId = new Map(catalog.map((e) => [e.id, e]));
 
-    const coach = pendingCoachInvite
-      ? await this.usersRepository.findById(pendingCoachInvite.coachId)
-      : null;
-
     return {
       ...safeUser,
       trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
@@ -104,10 +104,27 @@ export class UsersService {
         coachTrainingProgram,
         byId,
       ),
-      pendingCoachInvite: this.enrichPendingCoachInvite(
-        pendingCoachInvite,
-        coach,
-      ),
+    };
+  }
+
+  /**
+   * Pending coach invite for an athlete (from invites collection).
+   * Always { invite }; coaches / no pending → { invite: null }.
+   */
+  async getPendingCoachInvite(
+    userId: string,
+  ): Promise<PendingCoachInviteResponseDto> {
+    const user = await this.findByIdOrFail(userId);
+    if (user.role !== Role.Athlete) return { invite: null };
+
+    const pendingInvite =
+      await this.invitesRepository.findPendingByAthleteId(userId);
+
+    if (!pendingInvite) return { invite: null };
+
+    const coach = await this.usersRepository.findById(pendingInvite.coachId);
+    return {
+      invite: this.enrichPendingCoachInvite(pendingInvite, coach),
     };
   }
 
@@ -121,12 +138,19 @@ export class UsersService {
       throw new NotFoundException('No athlete found with that email');
     }
 
-    if (athlete.pendingCoachInvite) {
+    const existingInvite = await this.invitesRepository.findPendingByAthleteId(
+      athlete.id,
+    );
+
+    if (existingInvite) {
       throw new ConflictException('This athlete has a pending invitation');
     }
 
-    await this.usersRepository.setPendingCoachInvite(athlete.id, {
+    await this.invitesRepository.create({
+      id: randomUUID(),
       coachId,
+      athleteId: athlete.id,
+      email: athlete.email,
       invitedAt: new Date(),
     });
 
@@ -233,16 +257,23 @@ export class UsersService {
     userId: string,
     action: CoachInviteResponseAction,
   ): Promise<MeResponseDto> {
-    const user = await this.findByIdOrFail(userId);
+    await this.findByIdOrFail(userId);
 
-    if (!user.pendingCoachInvite) {
+    const pendingInvite =
+      await this.invitesRepository.findPendingByAthleteId(userId);
+
+    if (!pendingInvite) {
       throw new ConflictException('No pending coach invitation');
     }
 
-    await this.usersRepository.clearPendingCoachInvite(
+    const accept = action === CoachInviteResponseAction.Accept;
+    const status = accept ? InviteStatus.Accepted : InviteStatus.Rejected;
+
+    await this.invitesRepository.updatePendingByAthleteId(userId, status);
+    await this.usersRepository.applyCoachInviteResponse(
       userId,
-      action === CoachInviteResponseAction.Accept,
-      user.pendingCoachInvite.coachId,
+      accept,
+      pendingInvite.coachId,
     );
 
     return this.getEnrichedUserById(userId);
@@ -353,7 +384,7 @@ export class UsersService {
   }
 
   private enrichPendingCoachInvite(
-    invite: PendingCoachInvite | null | undefined,
+    invite: Pick<Invite, 'coachId' | 'invitedAt'> | null | undefined,
     coach: Pick<User, 'firstName' | 'lastName'> | null,
   ): MePendingCoachInviteDto | null {
     if (!invite || !coach) return null;

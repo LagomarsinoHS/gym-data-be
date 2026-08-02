@@ -81,6 +81,16 @@ export class MePendingCoachInviteDto {
   coach: MePendingCoachSummaryDto;
 }
 
+/** Always an object so “no pending” is explicit JSON, not an empty body. */
+export class PendingCoachInviteResponseDto {
+  @ApiPropertyOptional({
+    type: MePendingCoachInviteDto,
+    nullable: true,
+    description: 'At most one pending invite for the athlete',
+  })
+  invite: MePendingCoachInviteDto | null;
+}
+
 export class MeResponseDto {
   @ApiProperty({ example: '05549aab-26fa-4b13-9528-513cae92be14' })
   id: string;
@@ -111,12 +121,6 @@ export class MeResponseDto {
 
   @ApiProperty({ type: [MeCoachTrainingProgramDto] })
   coachTrainingProgram: MeCoachTrainingProgramDto[];
-
-  @ApiPropertyOptional({
-    type: MePendingCoachInviteDto,
-    nullable: true,
-  })
-  pendingCoachInvite: MePendingCoachInviteDto | null;
 
   @ApiPropertyOptional({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;
