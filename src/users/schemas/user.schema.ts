@@ -33,6 +33,25 @@ export class TrainingProgramExercise {
 }
 
 @Schema({ _id: false })
+export class CoachTrainingSession {
+  @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
+  @Prop({ required: true })
+  id: string;
+
+  @ApiProperty({ example: 'Día A - Empuje' })
+  @Prop({ required: true, trim: true })
+  name: string;
+
+  @ApiProperty({ example: 1 })
+  @Prop({ required: true })
+  order: number;
+
+  @ApiProperty({ type: [TrainingProgramExercise], default: [] })
+  @Prop({ type: [TrainingProgramExercise], default: [] })
+  items: TrainingProgramExercise[];
+}
+
+@Schema({ _id: false })
 export class PendingCoachInvite {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
   @Prop({ required: true })
@@ -93,13 +112,13 @@ export class User {
   trainingProgram: TrainingProgramExercise[];
 
   @ApiProperty({
-    type: [TrainingProgramExercise],
+    type: [CoachTrainingSession],
     default: [],
     description:
-      'Program assigned by the coach to the athlete (separate from self-serve trainingProgram)',
+      'Sessions assigned by the coach to the athlete (separate from self-serve trainingProgram)',
   })
-  @Prop({ type: [TrainingProgramExercise], default: [] })
-  coachTrainingProgram: TrainingProgramExercise[];
+  @Prop({ type: [CoachTrainingSession], default: [] })
+  coachTrainingProgram: CoachTrainingSession[];
 
   @ApiPropertyOptional({
     nullable: true,

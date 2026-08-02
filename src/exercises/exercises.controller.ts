@@ -7,13 +7,13 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
 import { ExerciseLabelsResponseDto } from './dto/exercise-labels-response.dto';
 import {
   GetExercisesQueryDto,
   getExercisesQuerySchema,
 } from './dto/get-exercises-query.dto';
-import { PaginatedExercisesResponse } from './dto/paginated-exercises-response.dto';
 import {
   RecommendExercisesQueryDto,
   RecommendExercisesResponseDto,
@@ -31,14 +31,14 @@ export class ExercisesController {
 
   @Get()
   @ApiOperation({ summary: 'List exercises with pagination and filters' })
-  @ApiOkResponse({ type: PaginatedExercisesResponse })
+  @ApiOkResponse({ type: PaginatedResponse })
   async getExercises(
     @Query(new JoiValidationPipe(getExercisesQuerySchema))
     query: GetExercisesQueryDto,
-  ): Promise<PaginatedExercisesResponse> {
+  ): Promise<PaginatedResponse<Exercise>> {
     const { data, total } = await this.exercisesService.getExercises(query);
 
-    return new PaginatedExercisesResponse(data, query.page, query.limit, total);
+    return new PaginatedResponse(data, query.page, query.limit, total);
   }
 
   @Get('labels')

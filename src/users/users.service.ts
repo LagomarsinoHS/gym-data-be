@@ -1,10 +1,12 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { UsersRepository } from './repositories/users.repository';
 import {
+  CoachTrainingSession,
   PendingCoachInvite,
   TrainingProgramExercise,
   User,
@@ -12,25 +14,61 @@ import {
 } from './schemas/user.schema';
 import { CreateUserData } from './types/create-user-data.type';
 import {
+  MeCoachTrainingSessionDto,
   MePendingCoachInviteDto,
   MeResponseDto,
   MeTrainingProgramItemDto,
 } from './dto/me-response.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
+import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
+import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto';
+import {
+  DEFAULT_EXCEL_LOCALE,
+  EXCEL_TRAINING_PROGRAM_HEADERS,
+  type ExcelLocale,
+} from '../excel/constants/excel-training-program-headers';
+import { ExcelService } from '../excel/excel.service';
+import type { AthleteTrainingProgramExport } from '../excel/types/athlete-training-program-export.type';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
 import { Role } from './types/role.enum';
+
+export type CoachTrainingProgramExportFile = {
+  buffer: Buffer;
+  contentType: string;
+  filename: string;
+};
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly exercisesService: ExercisesService,
+    private readonly excelService: ExcelService,
   ) {}
 
   findByEmail(email: string): Promise<UserDocument | null> {
     return this.usersRepository.findByEmail(email);
+  }
+
+  async getCoachAthletes(
+    coachId: string,
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{ data: MeResponseDto[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [athletes, total] = await Promise.all([
+      this.usersRepository.findAthletesByCoachId(coachId, skip, limit, search),
+      this.usersRepository.countAthletesByCoachId(coachId, search),
+    ]);
+
+    const data = await Promise.all(
+      athletes.map((athlete) => this.getEnrichedUserById(athlete.id)),
+    );
+
+    return { data, total };
   }
 
   private async findByIdOrFail(id: string): Promise<UserDocument> {
@@ -54,7 +92,9 @@ export class UsersService {
 
     const ids = [
       ...trainingProgram.map((item) => item.exerciseId),
-      ...coachTrainingProgram.map((item) => item.exerciseId),
+      ...coachTrainingProgram.flatMap((session) =>
+        session.items.map((item) => item.exerciseId),
+      ),
     ];
     const catalog = await this.exercisesService.getExercisesByIds(ids);
     const byId = new Map(catalog.map((e) => [e.id, e]));
@@ -66,7 +106,10 @@ export class UsersService {
     return {
       ...safeUser,
       trainingProgram: enrichTrainingProgram(trainingProgram, byId),
-      coachTrainingProgram: enrichTrainingProgram(coachTrainingProgram, byId),
+      coachTrainingProgram: enrichCoachTrainingProgram(
+        coachTrainingProgram,
+        byId,
+      ),
       pendingCoachInvite: enrichPendingCoachInvite(pendingCoachInvite, coach),
     };
   }
@@ -76,6 +119,7 @@ export class UsersService {
     email: string,
   ): Promise<OkResponseDto> {
     const athlete = await this.usersRepository.findByEmail(email);
+    console.log({ athlete });
 
     if (!athlete || athlete.role !== Role.Athlete) {
       throw new NotFoundException('No athlete found with that email');
@@ -91,6 +135,98 @@ export class UsersService {
     });
 
     return { ok: true };
+  }
+
+  async setCoachTrainingProgram(
+    coachId: string,
+    athleteId: string,
+    dto: SetCoachTrainingProgramDto,
+  ): Promise<MeResponseDto> {
+    const athlete = await this.findByIdOrFail(athleteId);
+
+    if (athlete.role !== Role.Athlete) {
+      throw new NotFoundException('Athlete not found');
+    }
+
+    if (athlete.coachId !== coachId) {
+      throw new ForbiddenException(
+        'You can only edit athletes assigned to you',
+      );
+    }
+
+    await this.usersRepository.setCoachTrainingProgram(
+      athleteId,
+      dto.coachTrainingProgram,
+    );
+
+    return this.getEnrichedUserById(athleteId);
+  }
+
+  async exportCoachTrainingPrograms(
+    coachId: string,
+    dto: ExportCoachTrainingProgramDto,
+  ): Promise<CoachTrainingProgramExportFile> {
+    const locale = dto.locale ?? DEFAULT_EXCEL_LOCALE;
+    const athleteIds = [...new Set(dto.athleteIds)];
+    const athletes = await this.usersRepository.findAthletesByCoachIdForExport(
+      coachId,
+      athleteIds,
+    );
+
+    if (athletes.length === 0) {
+      throw new NotFoundException('No athletes found to export');
+    }
+
+    const exerciseIds = new Set<string>();
+
+    for (const athlete of athletes) {
+      for (const session of athlete.coachTrainingProgram) {
+        for (const item of session.items) {
+          exerciseIds.add(item.exerciseId);
+        }
+      }
+    }
+
+    const catalog = await this.exercisesService.getExercisesByIds([
+      ...exerciseIds,
+    ]);
+    const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]));
+
+    const files: { filename: string; buffer: Buffer }[] = [];
+
+    for (const athlete of athletes) {
+      const exportData = toAthleteTrainingProgramExport(athlete, byId, locale);
+      const buffer =
+        await this.excelService.buildAthleteTrainingProgramWorkbook(
+          exportData,
+          locale,
+        );
+      if (!buffer) {
+        continue;
+      }
+
+      files.push({
+        filename: toExportFilename(athlete.firstName, athlete.lastName),
+        buffer,
+      });
+    }
+
+    if (files.length === 0) {
+      throw new NotFoundException('No training programs to export');
+    }
+
+    return files.length === 1
+      ? {
+          buffer: files[0].buffer,
+          contentType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: files[0].filename,
+        }
+      : {
+          buffer: await this.excelService.buildZip(files),
+          contentType: 'application/zip',
+          filename: `${EXCEL_TRAINING_PROGRAM_HEADERS[locale].fileName}.zip`,
+        };
   }
 
   async respondToCoachInvite(
@@ -197,6 +333,18 @@ function enrichTrainingProgram(
   });
 }
 
+function enrichCoachTrainingProgram(
+  sessions: CoachTrainingSession[],
+  byId: Map<string, Exercise>,
+): MeCoachTrainingSessionDto[] {
+  return sessions.map((session) => ({
+    id: session.id,
+    name: session.name,
+    order: session.order,
+    items: enrichTrainingProgram(session.items ?? [], byId),
+  }));
+}
+
 function enrichPendingCoachInvite(
   invite: PendingCoachInvite | null | undefined,
   coach: Pick<User, 'firstName' | 'lastName'> | null,
@@ -211,4 +359,45 @@ function enrichPendingCoachInvite(
       lastName: coach.lastName,
     },
   };
+}
+
+function toAthleteTrainingProgramExport(
+  athlete: Pick<User, 'firstName' | 'lastName' | 'coachTrainingProgram'>,
+  byId: Map<string, Exercise>,
+  locale: ExcelLocale,
+): AthleteTrainingProgramExport {
+  return {
+    firstName: athlete.firstName,
+    lastName: athlete.lastName,
+    sessions: athlete.coachTrainingProgram.map((session) => ({
+      id: session.id,
+      name: session.name,
+      order: session.order,
+      items: (session.items ?? []).map((item) => {
+        const found = byId.get(item.exerciseId);
+        return {
+          exerciseId: item.exerciseId,
+          order: item.order,
+          sets: item.sets,
+          reps: item.reps,
+          rest: item.rest,
+          notes: item.notes,
+          exerciseName: found
+            ? (found.name[locale] ?? found.name.es ?? found.name.en)
+            : item.exerciseId,
+        };
+      }),
+    })),
+  };
+}
+
+function toExportFilename(firstName: string, lastName: string): string {
+  const base = `${firstName}-${lastName}`
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  return `${base}.xlsx`;
 }

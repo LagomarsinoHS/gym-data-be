@@ -7,6 +7,8 @@ import {
   Param,
   Post,
   Put,
+  Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -14,16 +16,19 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { AuthenticatedUser } from '../auth/types/jwt-payload.type';
+import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
 import {
   AddTrainingProgramDto,
@@ -33,6 +38,14 @@ import {
   CreateCoachInviteDto,
   createCoachInviteSchema,
 } from './dto/create-coach-invite.dto';
+import {
+  ExportCoachTrainingProgramDto,
+  exportCoachTrainingProgramSchema,
+} from './dto/export-coach-training-program.dto';
+import {
+  GetCoachAthletesQueryDto,
+  getCoachAthletesQuerySchema,
+} from './dto/get-coach-athletes-query.dto';
 import { MeResponseDto } from './dto/me-response.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import {
@@ -43,6 +56,10 @@ import {
   RemoveTrainingProgramDto,
   removeTrainingProgramSchema,
 } from './dto/remove-training-program.dto';
+import {
+  SetCoachTrainingProgramDto,
+  setCoachTrainingProgramSchema,
+} from './dto/set-coach-training-program.dto';
 import {
   UpdateTrainingProgramExerciseDto,
   updateTrainingProgramExerciseSchema,
@@ -66,6 +83,28 @@ export class UsersController {
     return this.usersService.getEnrichedUserById(user.userId);
   }
 
+  @Get('coach/athletes')
+  @ApiOperation({
+    summary: 'List athletes assigned to the authenticated coach',
+    description: 'Optional search matches firstName, lastName, or email.',
+  })
+  @ApiOkResponse({ type: PaginatedResponse })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  async getCoachAthletes(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new JoiValidationPipe(getCoachAthletesQuerySchema))
+    query: GetCoachAthletesQueryDto,
+  ): Promise<PaginatedResponse<MeResponseDto>> {
+    const { data, total } = await this.usersService.getCoachAthletes(
+      user.userId,
+      query.page,
+      query.limit,
+      query.search,
+    );
+
+    return new PaginatedResponse(data, query.page, query.limit, total);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by id' })
   @ApiParam({ name: 'id', example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
@@ -76,6 +115,39 @@ export class UsersController {
   }
 
   // --- POST ---
+
+  @Post('coach/training-program/export')
+  @ApiOperation({
+    summary: 'Export coach training programs as Excel (or ZIP)',
+    description:
+      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. One file with sessions → .xlsx; multiple → .zip. Athletes without sessions are skipped.',
+  })
+  @ApiBody({ type: ExportCoachTrainingProgramDto })
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/zip',
+  )
+  @ApiOkResponse({ description: 'Excel or ZIP file download' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description: 'One or more athletes are not assigned to this coach',
+  })
+  @ApiNotFoundResponse({ description: 'No athletes or programs to export' })
+  async exportCoachTrainingPrograms(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(exportCoachTrainingProgramSchema))
+    dto: ExportCoachTrainingProgramDto,
+  ): Promise<StreamableFile> {
+    const file = await this.usersService.exportCoachTrainingPrograms(
+      user.userId,
+      dto,
+    );
+
+    return new StreamableFile(file.buffer, {
+      type: file.contentType,
+      disposition: `attachment; filename="${file.filename}"`,
+    });
+  }
 
   @Post('coach/invites')
   @HttpCode(HttpStatus.CREATED)
@@ -137,6 +209,36 @@ export class UsersController {
   }
 
   // --- PUT ---
+
+  @Put('coach/athletes/:athleteId/training-program')
+  @ApiOperation({
+    summary: 'Replace an athlete coach training program',
+    description:
+      'Sets coachTrainingProgram to the provided sessions array for an athlete assigned to the authenticated coach. Send exerciseId only per item.',
+  })
+  @ApiParam({
+    name: 'athleteId',
+    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
+  })
+  @ApiBody({ type: SetCoachTrainingProgramDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'Athlete not found' })
+  @ApiForbiddenResponse({
+    description: 'Athlete is not assigned to this coach',
+  })
+  setCoachTrainingProgram(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('athleteId') athleteId: string,
+    @Body(new JoiValidationPipe(setCoachTrainingProgramSchema))
+    dto: SetCoachTrainingProgramDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.setCoachTrainingProgram(
+      user.userId,
+      athleteId,
+      dto,
+    );
+  }
 
   @Put('training-program/remove')
   @ApiOperation({

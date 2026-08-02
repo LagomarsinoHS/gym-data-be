@@ -1,18 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import * as Joi from 'joi';
+import {
+  PaginationQueryDto,
+  paginationQueryKeys,
+} from '../../common/dto/pagination-query.dto';
 
-export class GetExercisesQueryDto {
-  @ApiPropertyOptional({ description: 'Page number', default: 1, minimum: 1 })
-  page: number;
-
-  @ApiPropertyOptional({
-    description: 'Items per page',
-    default: 50,
-    minimum: 1,
-    maximum: 100,
-  })
-  limit: number;
-
+export class GetExercisesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ example: 'waist' })
   category?: string;
 
@@ -33,8 +26,7 @@ export class GetExercisesQueryDto {
 }
 
 export const getExercisesQuerySchema = Joi.object<GetExercisesQueryDto>({
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(50),
+  ...paginationQueryKeys,
   category: Joi.string().trim().empty('').optional(),
   bodyPart: Joi.string().trim().empty('').optional(),
   target: Joi.string().trim().empty('').optional(),

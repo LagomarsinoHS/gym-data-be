@@ -25,6 +25,8 @@ async function bootstrap() {
 
   app.enableCors({
     origin: corsOrigins,
+    // Needed so the FE can read the download filename from StreamableFile responses.
+    exposedHeaders: ['Content-Disposition', 'Content-Type'],
   });
 
   const config = new DocumentBuilder()

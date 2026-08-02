@@ -48,6 +48,20 @@ export class MeTrainingProgramItemDto {
   exercise: MeExerciseSummaryDto;
 }
 
+export class MeCoachTrainingSessionDto {
+  @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
+  id: string;
+
+  @ApiProperty({ example: 'Día A - Empuje' })
+  name: string;
+
+  @ApiProperty({ example: 1 })
+  order: number;
+
+  @ApiProperty({ type: [MeTrainingProgramItemDto] })
+  items: MeTrainingProgramItemDto[];
+}
+
 export class MePendingCoachSummaryDto {
   @ApiProperty({ example: 'Carlos' })
   firstName: string;
@@ -95,8 +109,8 @@ export class MeResponseDto {
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];
 
-  @ApiProperty({ type: [MeTrainingProgramItemDto] })
-  coachTrainingProgram: MeTrainingProgramItemDto[];
+  @ApiProperty({ type: [MeCoachTrainingSessionDto] })
+  coachTrainingProgram: MeCoachTrainingSessionDto[];
 
   @ApiPropertyOptional({
     type: MePendingCoachInviteDto,
