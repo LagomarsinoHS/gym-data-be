@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
-  CoachTrainingSession,
+  CoachTrainingProgram,
   PendingCoachInvite,
   TrainingProgramExercise,
   User,
@@ -96,7 +96,7 @@ export class UsersRepository {
 
   async setCoachTrainingProgram(
     athleteId: string,
-    coachTrainingProgram: CoachTrainingSession[],
+    coachTrainingProgram: CoachTrainingProgram[],
   ): Promise<void> {
     await this.userModel
       .updateOne(

@@ -48,7 +48,7 @@ export class MeTrainingProgramItemDto {
   exercise: MeExerciseSummaryDto;
 }
 
-export class MeCoachTrainingSessionDto {
+export class MeCoachTrainingProgramDto {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
   id: string;
 
@@ -109,8 +109,8 @@ export class MeResponseDto {
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];
 
-  @ApiProperty({ type: [MeCoachTrainingSessionDto] })
-  coachTrainingProgram: MeCoachTrainingSessionDto[];
+  @ApiProperty({ type: [MeCoachTrainingProgramDto] })
+  coachTrainingProgram: MeCoachTrainingProgramDto[];
 
   @ApiPropertyOptional({
     type: MePendingCoachInviteDto,

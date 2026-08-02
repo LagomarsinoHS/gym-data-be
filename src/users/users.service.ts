@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { UsersRepository } from './repositories/users.repository';
 import {
-  CoachTrainingSession,
+  CoachTrainingProgram,
   PendingCoachInvite,
   TrainingProgramExercise,
   User,
@@ -14,7 +14,7 @@ import {
 } from './schemas/user.schema';
 import { CreateUserData } from './types/create-user-data.type';
 import {
-  MeCoachTrainingSessionDto,
+  MeCoachTrainingProgramDto,
   MePendingCoachInviteDto,
   MeResponseDto,
   MeTrainingProgramItemDto,
@@ -32,6 +32,7 @@ import { ExcelService } from '../excel/excel.service';
 import type { AthleteTrainingProgramExport } from '../excel/types/athlete-training-program-export.type';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
+import { ZipService } from '../zip/zip.service';
 import { Role } from './types/role.enum';
 
 export type CoachTrainingProgramExportFile = {
@@ -46,6 +47,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly exercisesService: ExercisesService,
     private readonly excelService: ExcelService,
+    private readonly zipService: ZipService,
   ) {}
 
   findByEmail(email: string): Promise<UserDocument | null> {
@@ -174,8 +176,8 @@ export class UsersService {
     const exerciseIds = new Set<string>();
 
     for (const athlete of athletes) {
-      for (const session of athlete.coachTrainingProgram) {
-        for (const item of session.items) {
+      for (const program of athlete.coachTrainingProgram) {
+        for (const item of program.items) {
           exerciseIds.add(item.exerciseId);
         }
       }
@@ -221,7 +223,7 @@ export class UsersService {
           filename: files[0].filename,
         }
       : {
-          buffer: await this.excelService.buildZip(files),
+          buffer: await this.zipService.buildZip(files),
           contentType: 'application/zip',
           filename: `${EXCEL_TRAINING_PROGRAM_HEADERS[locale].fileName}.zip`,
         };
@@ -339,14 +341,14 @@ export class UsersService {
   }
 
   private enrichCoachTrainingProgram(
-    sessions: CoachTrainingSession[],
+    coachTrainingProgram: CoachTrainingProgram[],
     byId: Map<string, Exercise>,
-  ): MeCoachTrainingSessionDto[] {
-    return sessions.map((session) => ({
-      id: session.id,
-      name: session.name,
-      order: session.order,
-      items: this.enrichTrainingProgram(session.items ?? [], byId),
+  ): MeCoachTrainingProgramDto[] {
+    return coachTrainingProgram.map((program) => ({
+      id: program.id,
+      name: program.name,
+      order: program.order,
+      items: this.enrichTrainingProgram(program.items ?? [], byId),
     }));
   }
 
@@ -374,11 +376,11 @@ export class UsersService {
     return {
       firstName: athlete.firstName,
       lastName: athlete.lastName,
-      sessions: athlete.coachTrainingProgram.map((session) => ({
-        id: session.id,
-        name: session.name,
-        order: session.order,
-        items: (session.items ?? []).map((item) => {
+      coachTrainingProgram: athlete.coachTrainingProgram.map((program) => ({
+        id: program.id,
+        name: program.name,
+        order: program.order,
+        items: (program.items ?? []).map((item) => {
           const found = byId.get(item.exerciseId);
           return {
             exerciseId: item.exerciseId,

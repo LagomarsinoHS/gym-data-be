@@ -120,7 +120,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Export coach training programs as Excel (or ZIP)',
     description:
-      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. One file with sessions → .xlsx; multiple → .zip. Athletes without sessions are skipped.',
+      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. One file → .xlsx; multiple → .zip. Athletes without a coachTrainingProgram are skipped.',
   })
   @ApiBody({ type: ExportCoachTrainingProgramDto })
   @ApiProduces(
@@ -214,7 +214,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Replace an athlete coach training program',
     description:
-      'Sets coachTrainingProgram to the provided sessions array for an athlete assigned to the authenticated coach. Send exerciseId only per item.',
+      'Sets coachTrainingProgram to the provided array for an athlete assigned to the authenticated coach. Send exerciseId only per item.',
   })
   @ApiParam({
     name: 'athleteId',

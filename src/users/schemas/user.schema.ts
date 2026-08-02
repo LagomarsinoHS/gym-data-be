@@ -33,7 +33,7 @@ export class TrainingProgramExercise {
 }
 
 @Schema({ _id: false })
-export class CoachTrainingSession {
+export class CoachTrainingProgram {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
   @Prop({ required: true })
   id: string;
@@ -112,13 +112,13 @@ export class User {
   trainingProgram: TrainingProgramExercise[];
 
   @ApiProperty({
-    type: [CoachTrainingSession],
+    type: [CoachTrainingProgram],
     default: [],
     description:
-      'Sessions assigned by the coach to the athlete (separate from self-serve trainingProgram)',
+      'Programs assigned by the coach to the athlete (separate from self-serve trainingProgram)',
   })
-  @Prop({ type: [CoachTrainingSession], default: [] })
-  coachTrainingProgram: CoachTrainingSession[];
+  @Prop({ type: [CoachTrainingProgram], default: [] })
+  coachTrainingProgram: CoachTrainingProgram[];
 
   @ApiPropertyOptional({
     nullable: true,

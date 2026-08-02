@@ -9,7 +9,7 @@ export type ExcelTrainingProgramItem = {
   exerciseName?: string;
 };
 
-export type ExcelTrainingSession = {
+export type ExcelCoachTrainingProgram = {
   id: string;
   name: string;
   order: number;
@@ -20,5 +20,5 @@ export type ExcelTrainingSession = {
 export type AthleteTrainingProgramExport = {
   firstName: string;
   lastName: string;
-  sessions: ExcelTrainingSession[];
+  coachTrainingProgram: ExcelCoachTrainingProgram[];
 };

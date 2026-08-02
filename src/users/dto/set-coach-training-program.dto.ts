@@ -21,7 +21,7 @@ export class CoachTrainingProgramItemDto {
   notes?: string;
 }
 
-export class CoachTrainingSessionDto {
+export class CoachTrainingProgramDto {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
   id: string;
 
@@ -37,11 +37,11 @@ export class CoachTrainingSessionDto {
 
 export class SetCoachTrainingProgramDto {
   @ApiProperty({
-    type: [CoachTrainingSessionDto],
+    type: [CoachTrainingProgramDto],
     description:
       'Full coachTrainingProgram to store for the athlete (replace). Send exerciseId only; catalog exercise objects are stripped.',
   })
-  coachTrainingProgram: CoachTrainingSessionDto[];
+  coachTrainingProgram: CoachTrainingProgramDto[];
 }
 
 const itemSchema = Joi.object<CoachTrainingProgramItemDto>({
@@ -53,7 +53,7 @@ const itemSchema = Joi.object<CoachTrainingProgramItemDto>({
   notes: Joi.string().trim().allow('').optional(),
 });
 
-const sessionSchema = Joi.object<CoachTrainingSessionDto>({
+const coachTrainingProgramSchema = Joi.object<CoachTrainingProgramDto>({
   id: Joi.string().trim().min(1).required(),
   name: Joi.string().trim().min(1).required(),
   order: Joi.number().integer().min(0).required(),
@@ -62,5 +62,7 @@ const sessionSchema = Joi.object<CoachTrainingSessionDto>({
 
 export const setCoachTrainingProgramSchema =
   Joi.object<SetCoachTrainingProgramDto>({
-    coachTrainingProgram: Joi.array().items(sessionSchema).required(),
+    coachTrainingProgram: Joi.array()
+      .items(coachTrainingProgramSchema)
+      .required(),
   });
