@@ -71,14 +71,6 @@ export class UsersService {
     return { data, total };
   }
 
-  private async findByIdOrFail(id: string): Promise<UserDocument> {
-    const user = await this.usersRepository.findById(id);
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found`);
-    }
-    return user;
-  }
-
   async getEnrichedUserById(id: string): Promise<MeResponseDto> {
     const user = await this.findByIdOrFail(id);
 
@@ -105,12 +97,15 @@ export class UsersService {
 
     return {
       ...safeUser,
-      trainingProgram: enrichTrainingProgram(trainingProgram, byId),
-      coachTrainingProgram: enrichCoachTrainingProgram(
+      trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
+      coachTrainingProgram: this.enrichCoachTrainingProgram(
         coachTrainingProgram,
         byId,
       ),
-      pendingCoachInvite: enrichPendingCoachInvite(pendingCoachInvite, coach),
+      pendingCoachInvite: this.enrichPendingCoachInvite(
+        pendingCoachInvite,
+        coach,
+      ),
     };
   }
 
@@ -119,7 +114,6 @@ export class UsersService {
     email: string,
   ): Promise<OkResponseDto> {
     const athlete = await this.usersRepository.findByEmail(email);
-    console.log({ athlete });
 
     if (!athlete || athlete.role !== Role.Athlete) {
       throw new NotFoundException('No athlete found with that email');
@@ -195,7 +189,11 @@ export class UsersService {
     const files: { filename: string; buffer: Buffer }[] = [];
 
     for (const athlete of athletes) {
-      const exportData = toAthleteTrainingProgramExport(athlete, byId, locale);
+      const exportData = this.toAthleteTrainingProgramExport(
+        athlete,
+        byId,
+        locale,
+      );
       const buffer =
         await this.excelService.buildAthleteTrainingProgramWorkbook(
           exportData,
@@ -206,7 +204,7 @@ export class UsersService {
       }
 
       files.push({
-        filename: toExportFilename(athlete.firstName, athlete.lastName),
+        filename: this.toExportFilename(athlete.firstName, athlete.lastName),
         buffer,
       });
     }
@@ -302,102 +300,110 @@ export class UsersService {
   create(data: CreateUserData): Promise<Omit<User, 'password'>> {
     return this.usersRepository.create(data);
   }
-}
 
-function enrichTrainingProgram(
-  items: TrainingProgramExercise[],
-  byId: Map<string, Exercise>,
-): MeTrainingProgramItemDto[] {
-  return items.flatMap((item) => {
-    const found = byId.get(item.exerciseId);
-    if (!found) return [];
+  private async findByIdOrFail(id: string): Promise<UserDocument> {
+    const user = await this.usersRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
+  }
 
-    return [
-      {
-        exerciseId: item.exerciseId,
-        order: item.order,
-        sets: item.sets,
-        reps: item.reps,
-        rest: item.rest,
-        notes: item.notes,
-        exercise: {
-          id: found.id,
-          name: found.name,
-          image: found.image,
-          gif_url: found.gif_url,
-          category: found.category,
-          equipment: found.equipment,
-        },
-      },
-    ];
-  });
-}
+  private enrichTrainingProgram(
+    items: TrainingProgramExercise[],
+    byId: Map<string, Exercise>,
+  ): MeTrainingProgramItemDto[] {
+    return items.flatMap((item) => {
+      const found = byId.get(item.exerciseId);
+      if (!found) return [];
 
-function enrichCoachTrainingProgram(
-  sessions: CoachTrainingSession[],
-  byId: Map<string, Exercise>,
-): MeCoachTrainingSessionDto[] {
-  return sessions.map((session) => ({
-    id: session.id,
-    name: session.name,
-    order: session.order,
-    items: enrichTrainingProgram(session.items ?? [], byId),
-  }));
-}
-
-function enrichPendingCoachInvite(
-  invite: PendingCoachInvite | null | undefined,
-  coach: Pick<User, 'firstName' | 'lastName'> | null,
-): MePendingCoachInviteDto | null {
-  if (!invite || !coach) return null;
-
-  return {
-    coachId: invite.coachId,
-    invitedAt: invite.invitedAt,
-    coach: {
-      firstName: coach.firstName,
-      lastName: coach.lastName,
-    },
-  };
-}
-
-function toAthleteTrainingProgramExport(
-  athlete: Pick<User, 'firstName' | 'lastName' | 'coachTrainingProgram'>,
-  byId: Map<string, Exercise>,
-  locale: ExcelLocale,
-): AthleteTrainingProgramExport {
-  return {
-    firstName: athlete.firstName,
-    lastName: athlete.lastName,
-    sessions: athlete.coachTrainingProgram.map((session) => ({
-      id: session.id,
-      name: session.name,
-      order: session.order,
-      items: (session.items ?? []).map((item) => {
-        const found = byId.get(item.exerciseId);
-        return {
+      return [
+        {
           exerciseId: item.exerciseId,
           order: item.order,
           sets: item.sets,
           reps: item.reps,
           rest: item.rest,
           notes: item.notes,
-          exerciseName: found
-            ? (found.name[locale] ?? found.name.es ?? found.name.en)
-            : item.exerciseId,
-        };
-      }),
-    })),
-  };
-}
+          exercise: {
+            id: found.id,
+            name: found.name,
+            image: found.image,
+            gif_url: found.gif_url,
+            category: found.category,
+            equipment: found.equipment,
+          },
+        },
+      ];
+    });
+  }
 
-function toExportFilename(firstName: string, lastName: string): string {
-  const base = `${firstName}-${lastName}`
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[^\w.-]+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
+  private enrichCoachTrainingProgram(
+    sessions: CoachTrainingSession[],
+    byId: Map<string, Exercise>,
+  ): MeCoachTrainingSessionDto[] {
+    return sessions.map((session) => ({
+      id: session.id,
+      name: session.name,
+      order: session.order,
+      items: this.enrichTrainingProgram(session.items ?? [], byId),
+    }));
+  }
 
-  return `${base}.xlsx`;
+  private enrichPendingCoachInvite(
+    invite: PendingCoachInvite | null | undefined,
+    coach: Pick<User, 'firstName' | 'lastName'> | null,
+  ): MePendingCoachInviteDto | null {
+    if (!invite || !coach) return null;
+
+    return {
+      coachId: invite.coachId,
+      invitedAt: invite.invitedAt,
+      coach: {
+        firstName: coach.firstName,
+        lastName: coach.lastName,
+      },
+    };
+  }
+
+  private toAthleteTrainingProgramExport(
+    athlete: Pick<User, 'firstName' | 'lastName' | 'coachTrainingProgram'>,
+    byId: Map<string, Exercise>,
+    locale: ExcelLocale,
+  ): AthleteTrainingProgramExport {
+    return {
+      firstName: athlete.firstName,
+      lastName: athlete.lastName,
+      sessions: athlete.coachTrainingProgram.map((session) => ({
+        id: session.id,
+        name: session.name,
+        order: session.order,
+        items: (session.items ?? []).map((item) => {
+          const found = byId.get(item.exerciseId);
+          return {
+            exerciseId: item.exerciseId,
+            order: item.order,
+            sets: item.sets,
+            reps: item.reps,
+            rest: item.rest,
+            notes: item.notes,
+            exerciseName: found
+              ? (found.name[locale] ?? found.name.es ?? found.name.en)
+              : item.exerciseId,
+          };
+        }),
+      })),
+    };
+  }
+
+  private toExportFilename(firstName: string, lastName: string): string {
+    const base = `${firstName}-${lastName}`
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '')
+      .replace(/[^\w.-]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+
+    return `${base}.xlsx`;
+  }
 }

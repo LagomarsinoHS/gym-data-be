@@ -11,10 +11,6 @@ import {
 import { CreateUserData } from '../types/create-user-data.type';
 import { Role } from '../types/role.enum';
 
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 type AthletesByCoachFilter = {
   role: Role;
   coachId: string;
@@ -78,24 +74,6 @@ export class UsersRepository {
         _id: 0,
       })
       .exec();
-  }
-
-  private buildAthletesByCoachFilter(
-    coachId: string,
-    search?: string,
-  ): AthletesByCoachFilter {
-    const filter: AthletesByCoachFilter = {
-      role: Role.Athlete,
-      coachId,
-      deletedAt: null,
-    };
-
-    if (search) {
-      const rx = new RegExp(escapeRegex(search), 'i');
-      filter.$or = [{ firstName: rx }, { lastName: rx }, { email: rx }];
-    }
-
-    return filter;
   }
 
   async create(user: CreateUserData): Promise<Omit<User, 'password'>> {
@@ -202,5 +180,27 @@ export class UsersRepository {
       .exec();
 
     return result.matchedCount > 0;
+  }
+
+  private buildAthletesByCoachFilter(
+    coachId: string,
+    search?: string,
+  ): AthletesByCoachFilter {
+    const filter: AthletesByCoachFilter = {
+      role: Role.Athlete,
+      coachId,
+      deletedAt: null,
+    };
+
+    if (search) {
+      const rx = new RegExp(this.escapeRegex(search), 'i');
+      filter.$or = [{ firstName: rx }, { lastName: rx }, { email: rx }];
+    }
+
+    return filter;
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
