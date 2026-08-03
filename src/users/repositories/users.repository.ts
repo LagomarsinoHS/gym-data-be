@@ -9,9 +9,16 @@ import {
 } from '../schemas/user.schema';
 import { CreateUserData } from '../types/create-user-data.type';
 import { Role } from '../types/role.enum';
+import { SubscriptionPlan } from '../types/subscription-plan.enum';
 
 /** Active users: soft-delete field must be absent (never stored as null). */
 const NOT_DELETED = { deletedAt: { $exists: false } } as const;
+
+const FREE_SUBSCRIPTION = {
+  plan: SubscriptionPlan.Free,
+  startedAt: null,
+  expiresAt: null,
+} as const;
 
 type AthletesByCoachFilter = {
   role: Role;
@@ -115,6 +122,38 @@ export class UsersRepository {
 
     await this.userModel
       .updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachId } })
+      .exec();
+  }
+
+  async clearSubscriptionToFree(userId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: userId, ...NOT_DELETED },
+        {
+          $set: { subscription: { ...FREE_SUBSCRIPTION } },
+        },
+      )
+      .exec();
+  }
+
+  async setPremiumSubscription(
+    userId: string,
+    startedAt: Date,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: userId, ...NOT_DELETED },
+        {
+          $set: {
+            subscription: {
+              plan: SubscriptionPlan.Premium,
+              startedAt,
+              expiresAt,
+            },
+          },
+        },
+      )
       .exec();
   }
 

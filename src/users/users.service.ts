@@ -39,6 +39,7 @@ import { Exercise } from '../exercises/schemas/exercise.schema';
 import { ZipService } from '../zip/zip.service';
 import { InviteStatus } from './types/invite-status.enum';
 import { Role } from './types/role.enum';
+import { SubscriptionPlan } from './types/subscription-plan.enum';
 
 export type CoachTrainingProgramExportFile = {
   buffer: Buffer;
@@ -120,7 +121,9 @@ export class UsersService {
   }
 
   async getEnrichedUserById(id: string): Promise<MeResponseDto> {
-    const user = await this.findByIdOrFail(id);
+    const user = await this.syncSubscriptionIfExpired(
+      await this.findByIdOrFail(id),
+    );
 
     const {
       password: _password,
@@ -375,6 +378,43 @@ export class UsersService {
     return this.usersRepository.create(data);
   }
 
+  async grantPremium(userId: string, expiresAt: Date): Promise<MeResponseDto> {
+    await this.findByIdOrFail(userId);
+    await this.usersRepository.setPremiumSubscription(
+      userId,
+      new Date(),
+      expiresAt,
+    );
+    return this.getEnrichedUserById(userId);
+  }
+
+  async revokePremium(userId: string): Promise<MeResponseDto> {
+    await this.findByIdOrFail(userId);
+    await this.usersRepository.clearSubscriptionToFree(userId);
+    return this.getEnrichedUserById(userId);
+  }
+
+  async findByIdOrEmail(params: {
+    userId?: string;
+    email?: string;
+  }): Promise<UserDocument> {
+    if (params.userId) {
+      return this.findByIdOrFail(params.userId);
+    }
+
+    if (params.email) {
+      const user = await this.usersRepository.findByEmail(params.email);
+      if (!user) {
+        throw new NotFoundException(
+          `User with email ${params.email} not found`,
+        );
+      }
+      return user;
+    }
+
+    throw new NotFoundException('User not found');
+  }
+
   private async findByIdOrFail(id: string): Promise<UserDocument> {
     const user = await this.usersRepository.findById(id);
     if (!user) {
@@ -438,6 +478,33 @@ export class UsersService {
         lastName: coach.lastName,
       },
     };
+  }
+
+  /**
+   * If premium period already ended, persist free subscription so /me stays current.
+   */
+  private async syncSubscriptionIfExpired(
+    user: UserDocument,
+  ): Promise<UserDocument> {
+    const { subscription } = user;
+    if (subscription.plan !== SubscriptionPlan.Premium) {
+      return user;
+    }
+
+    const { expiresAt } = subscription;
+    // If premium period is still active, return the user as is.
+    if (expiresAt != null && expiresAt.getTime() > Date.now()) {
+      return user;
+    }
+
+    // If premium period already ended, persist free subscription so /me stays current.
+    await this.usersRepository.clearSubscriptionToFree(user.id);
+    user.subscription = {
+      plan: SubscriptionPlan.Free,
+      startedAt: null,
+      expiresAt: null,
+    };
+    return user;
   }
 
   private toAthleteTrainingProgramExport(

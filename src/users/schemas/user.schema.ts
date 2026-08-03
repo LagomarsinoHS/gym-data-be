@@ -2,8 +2,36 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Role } from '../types/role.enum';
+import { SubscriptionPlan } from '../types/subscription-plan.enum';
 
 export type UserDocument = HydratedDocument<User>;
+
+@Schema({ _id: false })
+export class UserSubscription {
+  @ApiProperty({ enum: SubscriptionPlan, example: SubscriptionPlan.Free })
+  @Prop({
+    required: true,
+    enum: SubscriptionPlan,
+    default: SubscriptionPlan.Free,
+  })
+  plan: SubscriptionPlan;
+
+  @ApiPropertyOptional({
+    example: null,
+    nullable: true,
+    description: 'When the current paid period started',
+  })
+  @Prop({ type: Date, default: null })
+  startedAt: Date | null;
+
+  @ApiPropertyOptional({
+    example: null,
+    nullable: true,
+    description: 'When premium access ends',
+  })
+  @Prop({ type: Date, default: null })
+  expiresAt: Date | null;
+}
 
 @Schema({ _id: false })
 export class TrainingProgramExercise {
@@ -89,12 +117,16 @@ export class User {
   @Prop({ default: true })
   active: boolean;
 
-  @ApiProperty({
-    example: false,
-    description: 'Whether the user has premium access',
+  @ApiProperty({ type: UserSubscription })
+  @Prop({
+    type: UserSubscription,
+    default: () => ({
+      plan: SubscriptionPlan.Free,
+      startedAt: null,
+      expiresAt: null,
+    }),
   })
-  @Prop({ default: false })
-  isPremium: boolean;
+  subscription: UserSubscription;
 
   @ApiProperty({ type: [TrainingProgramExercise], default: [] })
   @Prop({ type: [TrainingProgramExercise], default: [] })

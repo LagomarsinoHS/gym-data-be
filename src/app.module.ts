@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module';
 import { ExercisesModule } from './exercises/exercises.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuthModule } from './auth/auth.module';
     ExercisesModule,
     UsersModule,
     AuthModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [],

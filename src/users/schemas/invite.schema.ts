@@ -16,7 +16,7 @@ export class Invite {
   coachId: string;
 
   @ApiProperty({ example: 'ee923be1-1192-460e-89ee-2275d4d3f206' })
-  @Prop({ required: true, index: true })
+  @Prop({ required: true })
   athleteId: string;
 
   @ApiProperty({ example: 'athlete@example.com' })

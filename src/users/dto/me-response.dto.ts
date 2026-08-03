@@ -1,6 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ExerciseName } from '../../exercises/schemas/exercise.schema';
 import { Role } from '../types/role.enum';
+import { SubscriptionPlan } from '../types/subscription-plan.enum';
+
+export class MeSubscriptionDto {
+  @ApiProperty({ enum: SubscriptionPlan, example: SubscriptionPlan.Free })
+  plan: SubscriptionPlan;
+
+  @ApiPropertyOptional({
+    example: null,
+    nullable: true,
+    description: 'When the current paid period started',
+  })
+  startedAt: Date | null;
+
+  @ApiPropertyOptional({
+    example: null,
+    nullable: true,
+    description: 'When premium access ends',
+  })
+  expiresAt: Date | null;
+}
 
 export class MeExerciseSummaryDto {
   @ApiProperty({ example: '0001' })
@@ -113,8 +133,8 @@ export class MeResponseDto {
   @ApiProperty({ example: true })
   active: boolean;
 
-  @ApiProperty({ example: false })
-  isPremium: boolean;
+  @ApiProperty({ type: MeSubscriptionDto })
+  subscription: MeSubscriptionDto;
 
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];
