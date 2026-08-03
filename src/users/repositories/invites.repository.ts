@@ -86,4 +86,37 @@ export class InvitesRepository {
       )
       .exec();
   }
+
+  /**
+   * Cancel open invites for a coach (e.g. after athlete quota is full).
+   * Optionally skip one athlete (the invite just accepted).
+   */
+  async cancelPendingByCoachId(
+    coachId: string,
+    excludeAthleteId?: string,
+  ): Promise<number> {
+    const filter: {
+      coachId: string;
+      status: InviteStatus;
+      athleteId?: { $ne: string };
+    } = {
+      coachId,
+      status: InviteStatus.Pending,
+    };
+
+    if (excludeAthleteId) {
+      filter.athleteId = { $ne: excludeAthleteId };
+    }
+
+    const result = await this.inviteModel
+      .updateMany(filter, {
+        $set: {
+          status: InviteStatus.Cancelled,
+          respondedAt: new Date(),
+        },
+      })
+      .exec();
+
+    return result.modifiedCount;
+  }
 }

@@ -225,6 +225,11 @@ Con el server corriendo:
 
 [http://localhost:3000/docs](http://localhost:3000/docs)
 
+Catálogo escrito de endpoints (auth, users, subscription, admin, error codes):  
+[`docs/API-ENDPOINTS.md`](docs/API-ENDPOINTS.md)
+
+Roadmap / hechos: [`TODO.md`](TODO.md)
+
 ## Notas de deploy
 
 - Este backend es NestJS “clásico”: conviene hostearlo en Railway, Render, Fly.io, etc.

@@ -13,6 +13,17 @@ Swagger: `GET /docs`.
 
 Validación fallida → `400` con `{ message: "Validation failed", errors: string[] }`.
 
+**JWT** — login/register firman `{ sub: userId, role }`.  
+`RolesGuard` + `@Roles(...)` leen el `role` del token (sin lookup a DB).
+
+**Errores de dominio (i18n)** — preferimos body:
+
+```json
+{ "code": "COACH_ATHLETE_QUOTA_FULL", "message": "…", "details": { } }
+```
+
+El front traduce por `code`. Ver sección [API error codes](#api-error-codes) abajo.
+
 ---
 
 ## Auth
@@ -157,9 +168,9 @@ Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 |---|---|
 | Auth | JWT |
 | Body | — |
-| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription` |
+| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
 
-Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
+Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
 
 ---
 
@@ -180,7 +191,8 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 |---|---|
 | Auth | JWT + **athlete** |
 | Respuesta | `200` — `MeResponseDto` |
-| Errores | `403` si el role no es athlete |
+| Errores | `403` si el role no es athlete, o cupo del coach lleno (`COACH_ATHLETE_QUOTA_FULL` — se cancelan **todas** las pending de ese coach) |
+| Errores | `409` `NO_PENDING_COACH_INVITE` |
 
 **Body**
 
@@ -248,6 +260,10 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 |---|---|
 | Auth | JWT + **coach** |
 | Respuesta | `201` — `{ ok: true }` |
+| Errores | `403` si ya alcanzó la cuota (`code: COACH_ATHLETE_QUOTA_FULL`). Cupos: `free` 5 / `growth` 10 / `pro` 20 |
+| Errores | `404` `ATHLETE_NOT_FOUND_BY_EMAIL` · `409` `ATHLETE_HAS_PENDING_INVITE` |
+
+Pending invites **no** cuentan para la cuota; solo athletes con `coachId` asignado.
 
 **Body**
 
@@ -434,7 +450,7 @@ Requieren **JWT** con **role `admin`**.
 | | |
 |---|---|
 | Auth | JWT + **admin** |
-| Respuesta | `200` — `MeResponseDto` con `subscription.plan: premium` |
+| Respuesta | `200` — `MeResponseDto` con plan pago (`premium` hoy vía grant; coaches usan `growth`/`pro` preferentemente) |
 | Errores | `403` si el role no es admin |
 
 **Body**
@@ -496,9 +512,34 @@ Requieren **JWT** con **role `admin`**.
 | Enum | Valores |
 |---|---|
 | Role | `athlete`, `coach`, `admin` |
-| SubscriptionPlan | `free`, `premium` |
+| SubscriptionPlan | `free`, `premium`, `growth`, `pro` |
 | InviteStatus | `pending`, `accepted`, `rejected`, `cancelled` |
 | Invite respond `action` | `accept`, `reject` |
+
+### Cupos de alumnos (coach)
+
+| Plan | Máx. athletes asociados |
+|---|---|
+| `free` / `premium`* | 5 |
+| `growth` | 10 |
+| `pro` | 20 |
+
+\* `premium` es solo para athletes. Un coach no debería tenerlo; si aparece, el cupo cae a free (5).
+
+Coach pago = `growth` o `pro` (implica “premium” en sentido de plan pago: `plan !== 'free'`).
+
+## API error codes
+
+Códigos estables para i18n en el client (`code` + `message` EN de debug):
+
+| Code | HTTP | Cuándo |
+|---|---|---|
+| `COACH_ATHLETE_QUOTA_FULL` | 403 | Coach invita con cupo lleno, o atleta acepta y el coach ya está al límite |
+| `ATHLETE_NOT_FOUND_BY_EMAIL` | 404 | Invite a email que no es athlete |
+| `ATHLETE_HAS_PENDING_INVITE` | 409 | Athlete ya tiene una invite pending |
+| `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
+
+Helpers: `src/common/errors/api-http.exception.ts`.
 
 ## Shape de `subscription` (en user /me)
 
@@ -510,13 +551,33 @@ Requieren **JWT** con **role `admin`**.
 }
 ```
 
-Premium ejemplo:
+Premium (athlete) ejemplo:
 
 ```json
 {
   "plan": "premium",
   "startedAt": "2026-08-03T15:00:00.000Z",
-  "expiresAt": "2026-09-02T15:00:00.000Z"
+  "expiresAt": "2026-09-02T23:59:59.999Z"
+}
+```
+
+Growth (coach) ejemplo:
+
+```json
+{
+  "plan": "growth",
+  "startedAt": "2026-08-03T15:00:00.000Z",
+  "expiresAt": "2026-09-02T23:59:59.999Z"
+}
+```
+
+`coachQuota` (solo si `role === coach`):
+
+```json
+{
+  "athleteLimit": 5,
+  "athleteCount": 3,
+  "canInvite": true
 }
 ```
 

@@ -22,6 +22,26 @@ export class MeSubscriptionDto {
   expiresAt: Date | null;
 }
 
+export class MeCoachQuotaDto {
+  @ApiProperty({
+    example: 5,
+    description: 'Max assigned athletes for current plan',
+  })
+  athleteLimit: number;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Athletes currently assigned (coachId)',
+  })
+  athleteCount: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether the coach can send another invite',
+  })
+  canInvite: boolean;
+}
+
 export class MeExerciseSummaryDto {
   @ApiProperty({ example: '0001' })
   id: string;
@@ -135,6 +155,13 @@ export class MeResponseDto {
 
   @ApiProperty({ type: MeSubscriptionDto })
   subscription: MeSubscriptionDto;
+
+  @ApiPropertyOptional({
+    type: MeCoachQuotaDto,
+    nullable: true,
+    description: 'Present for coaches; null for athletes/admins',
+  })
+  coachQuota: MeCoachQuotaDto | null;
 
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];

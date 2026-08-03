@@ -120,7 +120,10 @@ export class UsersController {
   @ApiBody({ type: RespondCoachInviteDto })
   @ApiOkResponse({ type: MeResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires athlete role, or the inviting coach has reached their athlete limit',
+  })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiConflictResponse({ description: 'No pending coach invitation' })
   respondToCoachInvite(
@@ -237,7 +240,9 @@ export class UsersController {
   @ApiBody({ type: CreateCoachInviteDto })
   @ApiCreatedResponse({ type: OkResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({ description: 'Requires coach role' })
+  @ApiForbiddenResponse({
+    description: 'Requires coach role, or athlete limit reached for plan',
+  })
   @ApiNotFoundResponse({ description: 'Athlete not found for that email' })
   @ApiConflictResponse({
     description: 'Athlete already has a pending invitation',

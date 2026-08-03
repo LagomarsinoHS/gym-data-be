@@ -1,10 +1,15 @@
 import {
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { ApiErrorCode } from '../common/errors/api-error-code';
+import {
+  throwApiConflict,
+  throwApiForbidden,
+  throwApiNotFound,
+} from '../common/errors/api-http.exception';
 import { UsersRepository } from './repositories/users.repository';
 import { InvitesRepository } from './repositories/invites.repository';
 import {
@@ -40,6 +45,10 @@ import { ZipService } from '../zip/zip.service';
 import { InviteStatus } from './types/invite-status.enum';
 import { Role } from './types/role.enum';
 import { SubscriptionPlan } from './types/subscription-plan.enum';
+import {
+  getCoachAthleteLimit,
+  isPaidSubscriptionPlan,
+} from './types/coach-athlete-limits';
 
 export type CoachTrainingProgramExportFile = {
   buffer: Buffer;
@@ -143,6 +152,7 @@ export class UsersService {
 
     return {
       ...safeUser,
+      coachQuota: await this.buildCoachQuota(user),
       trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
       coachTrainingProgram: this.enrichCoachTrainingProgram(
         coachTrainingProgram,
@@ -176,10 +186,18 @@ export class UsersService {
     coachId: string,
     email: string,
   ): Promise<OkResponseDto> {
+    const coach = await this.syncSubscriptionIfExpired(
+      await this.findByIdOrFail(coachId),
+    );
+    await this.checkCoachAthleteQuota(coach);
+
     const athlete = await this.usersRepository.findByEmail(email);
 
     if (!athlete || athlete.role !== Role.Athlete) {
-      throw new NotFoundException('No athlete found with that email');
+      throwApiNotFound(
+        ApiErrorCode.AthleteNotFoundByEmail,
+        'No athlete found with that email',
+      );
     }
 
     const existingInvite = await this.invitesRepository.findPendingByAthleteId(
@@ -187,7 +205,10 @@ export class UsersService {
     );
 
     if (existingInvite) {
-      throw new ConflictException('This athlete has a pending invitation');
+      throwApiConflict(
+        ApiErrorCode.AthleteHasPendingInvite,
+        'This athlete has a pending invitation',
+      );
     }
 
     await this.invitesRepository.create({
@@ -307,10 +328,32 @@ export class UsersService {
       await this.invitesRepository.findPendingByAthleteId(userId);
 
     if (!pendingInvite) {
-      throw new ConflictException('No pending coach invitation');
+      throwApiConflict(
+        ApiErrorCode.NoPendingCoachInvite,
+        'No pending coach invitation',
+      );
     }
 
     const accept = action === CoachInviteResponseAction.Accept;
+
+    if (accept) {
+      const coach = await this.syncSubscriptionIfExpired(
+        await this.findByIdOrFail(pendingInvite.coachId),
+      );
+
+      try {
+        await this.checkCoachAthleteQuota(coach, {
+          asInvitee: true,
+        });
+      } catch (error) {
+        // Coach is full: this invite and every other pending for that coach are dead.
+        await this.invitesRepository.cancelPendingByCoachId(
+          pendingInvite.coachId,
+        );
+        throw error;
+      }
+    }
+
     const status = accept ? InviteStatus.Accepted : InviteStatus.Rejected;
 
     await this.invitesRepository.updatePendingByAthleteId(userId, status);
@@ -319,6 +362,21 @@ export class UsersService {
       accept,
       pendingInvite.coachId,
     );
+
+    if (accept) {
+      const athleteCount = await this.usersRepository.countAthletesByCoachId(
+        pendingInvite.coachId,
+      );
+      const coach = await this.findByIdOrFail(pendingInvite.coachId);
+      const limit = getCoachAthleteLimit(coach.subscription.plan);
+
+      if (athleteCount >= limit) {
+        await this.invitesRepository.cancelPendingByCoachId(
+          pendingInvite.coachId,
+          userId,
+        );
+      }
+    }
 
     return this.getEnrichedUserById(userId);
   }
@@ -481,23 +539,21 @@ export class UsersService {
   }
 
   /**
-   * If premium period already ended, persist free subscription so /me stays current.
+   * If paid period already ended, persist free subscription so /me stays current.
    */
   private async syncSubscriptionIfExpired(
     user: UserDocument,
   ): Promise<UserDocument> {
     const { subscription } = user;
-    if (subscription.plan !== SubscriptionPlan.Premium) {
+    if (!isPaidSubscriptionPlan(subscription.plan)) {
       return user;
     }
 
     const { expiresAt } = subscription;
-    // If premium period is still active, return the user as is.
     if (expiresAt != null && expiresAt.getTime() > Date.now()) {
       return user;
     }
 
-    // If premium period already ended, persist free subscription so /me stays current.
     await this.usersRepository.clearSubscriptionToFree(user.id);
     user.subscription = {
       plan: SubscriptionPlan.Free,
@@ -505,6 +561,45 @@ export class UsersService {
       expiresAt: null,
     };
     return user;
+  }
+
+  private async buildCoachQuota(
+    user: UserDocument,
+  ): Promise<MeResponseDto['coachQuota']> {
+    if (user.role !== Role.Coach) {
+      return null;
+    }
+
+    const athleteLimit = getCoachAthleteLimit(user.subscription.plan);
+    const athleteCount = await this.usersRepository.countAthletesByCoachId(
+      user.id,
+    );
+
+    return {
+      athleteLimit,
+      athleteCount,
+      canInvite: athleteCount < athleteLimit,
+    };
+  }
+
+  private async checkCoachAthleteQuota(
+    coach: UserDocument,
+    options?: { asInvitee?: boolean },
+  ): Promise<void> {
+    const limit = getCoachAthleteLimit(coach.subscription.plan);
+    const athleteCount = await this.usersRepository.countAthletesByCoachId(
+      coach.id,
+    );
+
+    if (athleteCount >= limit) {
+      throwApiForbidden(
+        ApiErrorCode.CoachAthleteQuotaFull,
+        options?.asInvitee
+          ? 'This coach has reached their athlete limit'
+          : `Athlete limit reached for your plan (${athleteCount}/${limit})`,
+        { athleteCount, limit },
+      );
+    }
   }
 
   private toAthleteTrainingProgramExport(
