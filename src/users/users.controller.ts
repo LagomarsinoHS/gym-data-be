@@ -26,7 +26,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedUser } from '../auth/types/jwt-payload.type';
 import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
@@ -72,11 +74,12 @@ import {
   UpdateTrainingProgramExerciseDto,
   updateTrainingProgramExerciseSchema,
 } from './dto/update-training-program-exercise.dto';
+import { Role } from './types/role.enum';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
 @Controller('users')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -91,23 +94,24 @@ export class UsersController {
     return this.usersService.getEnrichedUserById(user.userId);
   }
 
-  // Requires Role.Athlete (TODO: RolesGuard)
   @Get('me/pending-coach-invite')
+  @Roles(Role.Athlete)
   @ApiOperation({
     summary: 'Get the athlete pending coach invitation',
     description:
-      'Reads from the invites collection. Always returns { invite }. invite is null when there is none (or the caller is not an athlete). At most one pending invite per athlete.',
+      'Reads from the invites collection. Always returns { invite }. invite is null when there is none. At most one pending invite per athlete.',
   })
   @ApiOkResponse({ type: PendingCoachInviteResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
   getPendingCoachInvite(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PendingCoachInviteResponseDto> {
     return this.usersService.getPendingCoachInvite(user.userId);
   }
 
-  // Requires Role.Athlete (TODO: RolesGuard)
   @Post('me/pending-coach-invite/respond')
+  @Roles(Role.Athlete)
   @ApiOperation({
     summary: 'Accept or reject a pending coach invitation',
     description:
@@ -116,6 +120,7 @@ export class UsersController {
   @ApiBody({ type: RespondCoachInviteDto })
   @ApiOkResponse({ type: MeResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiConflictResponse({ description: 'No pending coach invitation' })
   respondToCoachInvite(
@@ -126,14 +131,15 @@ export class UsersController {
     return this.usersService.respondToCoachInvite(user.userId, dto.action);
   }
 
-  // Requires Role.Coach (TODO: RolesGuard)
   @Get('coach/athletes')
+  @Roles(Role.Coach)
   @ApiOperation({
     summary: 'List athletes assigned to the authenticated coach',
     description: 'Optional search matches firstName, lastName, or email.',
   })
   @ApiOkResponse({ type: PaginatedResponse })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires coach role' })
   async getCoachAthletes(
     @CurrentUser() user: AuthenticatedUser,
     @Query(new JoiValidationPipe(getCoachAthletesQuerySchema))
@@ -149,8 +155,8 @@ export class UsersController {
     return new PaginatedResponse(data, query.page, query.limit, total);
   }
 
-  // Requires Role.Coach (TODO: RolesGuard)
   @Get('coach/invites')
+  @Roles(Role.Coach)
   @ApiOperation({
     summary: 'List invite history for the authenticated coach',
     description:
@@ -158,6 +164,7 @@ export class UsersController {
   })
   @ApiOkResponse({ type: PaginatedResponse })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires coach role' })
   async getCoachInvites(
     @CurrentUser() user: AuthenticatedUser,
     @Query(new JoiValidationPipe(getCoachInvitesQuerySchema))
@@ -184,8 +191,8 @@ export class UsersController {
 
   // --- POST ---
 
-  // Requires Role.Coach (TODO: RolesGuard)
   @Post('coach/training-program/export')
+  @Roles(Role.Coach)
   @ApiOperation({
     summary: 'Export coach training programs as Excel (or ZIP)',
     description:
@@ -199,7 +206,8 @@ export class UsersController {
   @ApiOkResponse({ description: 'Excel or ZIP file download' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({
-    description: 'One or more athletes are not assigned to this coach',
+    description:
+      'Requires coach role, or one or more athletes are not assigned to this coach',
   })
   @ApiNotFoundResponse({ description: 'No athletes or programs to export' })
   async exportCoachTrainingPrograms(
@@ -218,8 +226,8 @@ export class UsersController {
     });
   }
 
-  // Requires Role.Coach (TODO: RolesGuard)
   @Post('coach/invites')
+  @Roles(Role.Coach)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Invite an athlete by email',
@@ -229,6 +237,7 @@ export class UsersController {
   @ApiBody({ type: CreateCoachInviteDto })
   @ApiCreatedResponse({ type: OkResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires coach role' })
   @ApiNotFoundResponse({ description: 'Athlete not found for that email' })
   @ApiConflictResponse({
     description: 'Athlete already has a pending invitation',
@@ -261,8 +270,8 @@ export class UsersController {
 
   // --- PUT ---
 
-  // Requires Role.Coach (TODO: RolesGuard)
   @Put('coach/athletes/:athleteId/training-program')
+  @Roles(Role.Coach)
   @ApiOperation({
     summary: 'Replace an athlete coach training program',
     description:
@@ -277,7 +286,8 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiNotFoundResponse({ description: 'Athlete not found' })
   @ApiForbiddenResponse({
-    description: 'Athlete is not assigned to this coach',
+    description:
+      'Requires coach role, or athlete is not assigned to this coach',
   })
   setCoachTrainingProgram(
     @CurrentUser() user: AuthenticatedUser,

@@ -25,9 +25,9 @@
 > FE: menú de cuenta (iniciales + dropdown). **Mi perfil** / **Configuración** quedan deshabilitados hasta cablear vistas + endpoints de abajo.
 ## Pendiente — back
 
-- [ ] `RolesGuard` + `@Roles(...)`: `coach/*` → coach; `me/pending-coach-invite*` → athlete (JWT con `role` o lookup). Ownership en service queda.
-- [ ] Endpoint admin / flujo para marcar `isPremium: true` (hoy solo a mano en DB)
-- [ ] Backfill opcional: setear `isPremium: false` en users viejos sin el campo
+- [x] `RolesGuard` + `@Roles(...)`: JWT incluye `role`; `coach/*` → coach; `me/pending-coach-invite*` → athlete; `/admin/*` → admin. Ownership en service queda.
+- [x] Admin: `POST /admin/subscriptions/grant|revoke` (premium via `subscription`)
+- [ ] Backfill opcional: setear `subscription` free en users viejos sin el campo
 - [ ] (Opcional) Soft-delete: endpoint/deactivate que setee `deletedAt` (filtro + schema ya listos)
 - [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
@@ -39,7 +39,7 @@
 
 | Endpoint | Uso |
 |----------|-----|
-| `GET /users/me` | perfil + programs enriquecidos + `isPremium` + `role` + `coachId` |
+| `GET /users/me` | perfil + programs enriquecidos + `subscription` + `role` + `coachId` |
 | `GET /users/me/pending-coach-invite` | `{ invite: null \| PendingInvite }` |
 | `POST /users/coach/invites` | body `{ email }` |
 | `POST /users/me/pending-coach-invite/respond` | body `{ action: 'accept' \| 'reject' }` |

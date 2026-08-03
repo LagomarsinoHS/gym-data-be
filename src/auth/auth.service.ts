@@ -6,10 +6,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
 import { HashingService } from '../common/hashing/hashing.service';
+import { Role } from '../users/types/role.enum';
 import { UsersService } from '../users/users.service';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import type { JwtPayload } from './types/jwt-payload.type';
 
 @Injectable()
 export class AuthService {
@@ -31,9 +33,7 @@ export class AuthService {
       id: randomUUID(),
     });
 
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-    });
+    const accessToken = await this.signAccessToken(user.id, user.role);
 
     return { accessToken, user };
   }
@@ -54,10 +54,13 @@ export class AuthService {
 
     const { password: _password, ...safeUser } = user.toObject();
 
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-    });
+    const accessToken = await this.signAccessToken(user.id, user.role);
 
     return { accessToken, user: safeUser };
+  }
+
+  private signAccessToken(userId: string, role: Role): Promise<string> {
+    const payload: JwtPayload = { sub: userId, role };
+    return this.jwtService.signAsync(payload);
   }
 }

@@ -10,15 +10,19 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiBadRequestResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
 import { MeResponseDto } from '../users/dto/me-response.dto';
+import { Role } from '../users/types/role.enum';
 import { AdminService } from './admin.service';
 import { GrantPremiumDto, grantPremiumSchema } from './dto/grant-premium.dto';
 import {
@@ -26,13 +30,10 @@ import {
   revokePremiumSchema,
 } from './dto/revoke-premium.dto';
 
-/**
- * Temporary testing endpoints. Any authenticated user can call these;
- * replace with Role.Admin + RolesGuard before production.
- */
 @ApiTags('admin')
 @Controller('admin')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.Admin)
 @ApiBearerAuth()
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -40,13 +41,14 @@ export class AdminController {
   @Post('subscriptions/grant')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[dev] Grant premium subscription',
+    summary: 'Grant premium subscription',
     description:
-      'Dev/testing only: any JWT can grant. Body needs email. Default duration 30 days unless expiresAt/durationDays is set.',
+      'Requires admin role. Body needs email. Default duration 30 days unless expiresAt/durationDays is set.',
   })
   @ApiBody({ type: GrantPremiumDto })
   @ApiOkResponse({ type: MeResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires admin role' })
   @ApiBadRequestResponse({ description: 'Invalid body' })
   @ApiNotFoundResponse({ description: 'User not found' })
   grantPremium(
@@ -58,13 +60,14 @@ export class AdminController {
   @Post('subscriptions/revoke')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: '[dev] Revoke premium subscription',
+    summary: 'Revoke premium subscription',
     description:
-      'Dev/testing only: any JWT can revoke. Body needs email. Sets plan to free and clears dates.',
+      'Requires admin role. Body needs email. Sets plan to free and clears dates.',
   })
   @ApiBody({ type: RevokePremiumDto })
   @ApiOkResponse({ type: MeResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires admin role' })
   @ApiBadRequestResponse({ description: 'Invalid body' })
   @ApiNotFoundResponse({ description: 'User not found' })
   revokePremium(

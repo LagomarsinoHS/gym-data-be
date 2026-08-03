@@ -148,8 +148,8 @@ Ejemplo: `GET /exercises/recommend?zone=chest&equipment=barbell,dumbbell`
 
 ## Users
 
-Todos requieren **JWT**.  
-Varias rutas tienen comentario `TODO: RolesGuard` (hoy no hay enforcement estricto por rol en el guard).
+Todos requieren **JWT**. El token incluye `{ sub, role }`.  
+Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 
 ### `GET /users/me`
 
@@ -167,10 +167,10 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | athlete |
+| Auth | JWT + **athlete** |
 | Body | — |
 | Respuesta | `200` — `{ invite: null \| { coachId, invitedAt, coach } }` |
+| Errores | `403` si el role no es athlete |
 
 ---
 
@@ -178,9 +178,9 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | athlete |
+| Auth | JWT + **athlete** |
 | Respuesta | `200` — `MeResponseDto` |
+| Errores | `403` si el role no es athlete |
 
 **Body**
 
@@ -200,9 +200,9 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | coach |
+| Auth | JWT + **coach** |
 | Respuesta | `200` — paginado de `MeResponseDto` |
+| Errores | `403` si el role no es coach |
 
 **Query**
 
@@ -218,8 +218,7 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | coach |
+| Auth | JWT + **coach** |
 | Respuesta | `200` — paginado de invites |
 
 **Query**
@@ -247,8 +246,7 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | coach |
+| Auth | JWT + **coach** |
 | Respuesta | `201` — `{ ok: true }` |
 
 **Body**
@@ -269,8 +267,7 @@ Al responder, si el user era `premium` y `expiresAt` ya pasó, el backend lo nor
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | coach |
+| Auth | JWT + **coach** |
 | Respuesta | `200` — archivo binario (`.xlsx` o `.zip`) |
 
 **Body**
@@ -374,8 +371,7 @@ Reemplaza por completo el `coachTrainingProgram` del athlete.
 
 | | |
 |---|---|
-| Auth | JWT |
-| Pensado para | coach |
+| Auth | JWT + **coach** |
 | Path | `athleteId` — UUID |
 | Respuesta | `200` — `MeResponseDto` del athlete |
 
@@ -429,27 +425,27 @@ Cada item:
 
 ---
 
-## Admin (dev / testing)
+## Admin
 
-Requieren **JWT**, pero **cualquier usuario autenticado** puede llamarlos hoy.  
-Antes de producción: restringir a `Role.Admin`.
+Requieren **JWT** con **role `admin`**.
 
 ### `POST /admin/subscriptions/grant`
 
 | | |
 |---|---|
-| Auth | JWT (cualquier rol, temporal) |
+| Auth | JWT + **admin** |
 | Respuesta | `200` — `MeResponseDto` con `subscription.plan: premium` |
+| Errores | `403` si el role no es admin |
 
 **Body**
 
 | Campo | | Notas |
 |---|---|---|
 | `email` | Obligatorio | email único del target |
-| `durationDays` | Opcional† | días desde ahora (1–3650). Default **1** si no mandás `expiresAt` |
+| `durationDays` | Opcional† | días desde ahora (1–3650). Default **30** si no mandás `expiresAt` |
 | `expiresAt` | Opcional† | fecha `YYYY-MM-DD`; el premium dura hasta el **final de ese día UTC** |
 
-† Podés omitir ambos (`durationDays` / `expiresAt`) → 1 días. No mandar los dos a la vez.
+† Podés omitir ambos (`durationDays` / `expiresAt`) → 30 días. No mandar los dos a la vez.
 
 ```json
 {
@@ -477,8 +473,9 @@ Antes de producción: restringir a `Role.Admin`.
 
 | | |
 |---|---|
-| Auth | JWT (cualquier rol, temporal) |
+| Auth | JWT + **admin** |
 | Respuesta | `200` — `MeResponseDto` con `subscription.plan: free` |
+| Errores | `403` si el role no es admin |
 
 **Body**
 
@@ -532,5 +529,5 @@ Premium ejemplo:
 | Auth | 2 | público |
 | Exercises | 5 | público |
 | Users | 13 | JWT |
-| Admin | 2 | JWT (sin check de admin aún) |
+| Admin | 2 | JWT + admin |
 | **Total** | **22** | |
