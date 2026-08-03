@@ -450,7 +450,7 @@ Requieren **JWT** con **role `admin`**.
 | | |
 |---|---|
 | Auth | JWT + **admin** |
-| Respuesta | `200` — `MeResponseDto` con plan pago (`premium` hoy vía grant; coaches usan `growth`/`pro` preferentemente) |
+| Respuesta | `200` — `MeResponseDto` con el `plan` solicitado |
 | Errores | `403` si el role no es admin |
 
 **Body**
@@ -458,27 +458,33 @@ Requieren **JWT** con **role `admin`**.
 | Campo | | Notas |
 |---|---|---|
 | `email` | Obligatorio | email único del target |
+| `plan` | Obligatorio | `premium` \| `growth` \| `pro` (no `free`) |
 | `durationDays` | Opcional† | días desde ahora (1–3650). Default **30** si no mandás `expiresAt` |
-| `expiresAt` | Opcional† | fecha `YYYY-MM-DD`; el premium dura hasta el **final de ese día UTC** |
+| `expiresAt` | Opcional† | fecha `YYYY-MM-DD`; el plan dura hasta el **final de ese día UTC** |
 
 † Podés omitir ambos (`durationDays` / `expiresAt`) → 30 días. No mandar los dos a la vez.
 
+Athlete → suele usarse `premium`. Coach → `growth` o `pro` (`premium` en un coach cae al cupo free).
+
 ```json
 {
-  "email": "athlete@example.com"
+  "email": "athlete@example.com",
+  "plan": "premium"
 }
 ```
 
 ```json
 {
-  "email": "athlete@example.com",
+  "email": "coach@example.com",
+  "plan": "growth",
   "durationDays": 7
 }
 ```
 
 ```json
 {
-  "email": "athlete@example.com",
+  "email": "coach@example.com",
+  "plan": "pro",
   "expiresAt": "2026-09-03"
 }
 ```

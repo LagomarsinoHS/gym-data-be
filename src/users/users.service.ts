@@ -45,6 +45,7 @@ import { ZipService } from '../zip/zip.service';
 import { InviteStatus } from './types/invite-status.enum';
 import { Role } from './types/role.enum';
 import { SubscriptionPlan } from './types/subscription-plan.enum';
+import type { GrantableSubscriptionPlan } from './types/subscription-plan.enum';
 import {
   getCoachAthleteLimit,
   isPaidSubscriptionPlan,
@@ -436,10 +437,15 @@ export class UsersService {
     return this.usersRepository.create(data);
   }
 
-  async grantPremium(userId: string, expiresAt: Date): Promise<MeResponseDto> {
+  async grantSubscription(
+    userId: string,
+    plan: GrantableSubscriptionPlan,
+    expiresAt: Date,
+  ): Promise<MeResponseDto> {
     await this.findByIdOrFail(userId);
-    await this.usersRepository.setPremiumSubscription(
+    await this.usersRepository.setPaidSubscription(
       userId,
+      plan,
       new Date(),
       expiresAt,
     );

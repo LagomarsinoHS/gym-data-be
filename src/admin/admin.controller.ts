@@ -41,9 +41,9 @@ export class AdminController {
   @Post('subscriptions/grant')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Grant premium subscription',
+    summary: 'Grant paid subscription',
     description:
-      'Requires admin role. Body needs email. Default duration 30 days unless expiresAt/durationDays is set.',
+      'Requires admin role. Body needs email + plan (premium | growth | pro). Default duration 30 days unless expiresAt/durationDays is set.',
   })
   @ApiBody({ type: GrantPremiumDto })
   @ApiOkResponse({ type: MeResponseDto })

@@ -9,7 +9,10 @@ import {
 } from '../schemas/user.schema';
 import { CreateUserData } from '../types/create-user-data.type';
 import { Role } from '../types/role.enum';
-import { SubscriptionPlan } from '../types/subscription-plan.enum';
+import {
+  GrantableSubscriptionPlan,
+  SubscriptionPlan,
+} from '../types/subscription-plan.enum';
 
 /** Active users: soft-delete field must be absent (never stored as null). */
 const NOT_DELETED = { deletedAt: { $exists: false } } as const;
@@ -136,8 +139,9 @@ export class UsersRepository {
       .exec();
   }
 
-  async setPremiumSubscription(
+  async setPaidSubscription(
     userId: string,
+    plan: GrantableSubscriptionPlan,
     startedAt: Date,
     expiresAt: Date,
   ): Promise<void> {
@@ -147,7 +151,7 @@ export class UsersRepository {
         {
           $set: {
             subscription: {
-              plan: SubscriptionPlan.Premium,
+              plan,
               startedAt,
               expiresAt,
             },

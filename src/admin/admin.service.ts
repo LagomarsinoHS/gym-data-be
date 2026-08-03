@@ -30,7 +30,7 @@ export class AdminService {
               (dto.durationDays ?? DEFAULT_DURATION_DAYS) * MS_PER_DAY,
           );
 
-    return this.usersService.grantPremium(user.id, expiresAt);
+    return this.usersService.grantSubscription(user.id, dto.plan, expiresAt);
   }
 
   async revokePremium(dto: RevokePremiumDto): Promise<MeResponseDto> {

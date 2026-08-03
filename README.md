@@ -1,22 +1,24 @@
 # Gym Data API
 
-Backend NestJS para consultar ejercicios de gym desde MongoDB Atlas.
+Backend NestJS para el catálogo de ejercicios, sesión de usuarios (athlete / coach / admin), planes de entrenamiento e invites coach↔athlete.
 
-Expone listados con paginación y filtros, labels para armar selects en el front, detalle por id y un ejercicio aleatorio.
+Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes) vive en el repo del frontend; este API no sirve media.
 
 ## Stack
 
 - NestJS 11
 - MongoDB + Mongoose
-- Joi (validación de query params)
+- Auth: JWT (Passport) + Argon2
+- Validación: Joi
 - Swagger (`/docs`)
+- ExcelJS / JSZip (export de pautas)
 - Morgan (logs HTTP)
 
 ## Requisitos
 
-- Node.js 20+ (recomendado)
+- Node.js **22.x** (`engines` en `package.json`)
 - npm
-- Una base MongoDB (Atlas u otra) con la colección `exercises`
+- MongoDB con colecciones de exercises, users e invites
 
 ## Setup
 
@@ -24,35 +26,37 @@ Expone listados con paginación y filtros, labels para armar selects en el front
 git clone <repo-url>
 cd gym-data-be
 npm install
-cp .env.example .env   # o crea el .env a mano
+cp .env.example .env
 ```
 
-Completa las variables en `.env` y arranca:
+Completá las variables y arrancá:
 
 ```bash
 npm run start:dev
 ```
 
-API: `http://localhost:3000`  
-Swagger: `http://localhost:3000/docs`
+- API: `http://localhost:3000`
+- Swagger: `http://localhost:3000/docs`
 
 ## Variables de entorno
 
 | Variable | Descripción | Ejemplo |
 |---|---|---|
 | `PORT` | Puerto del servidor | `3000` |
-| `MONGODB_URI` | Connection string de Mongo | `mongodb+srv://user:pass@cluster...` |
+| `MONGODB_URI` | Connection string | `mongodb+srv://user:pass@cluster...` |
 | `MONGODB_DATABASE` | Nombre de la base | `gym` |
-| `CORS_ORIGINS` | Orígenes permitidos (separados por coma) | `http://127.0.0.1:5500,https://tu-app.vercel.app` |
+| `JWT_SECRET` | Secreto JWT (≥ 32 chars) | `openssl rand -base64 32` |
+| `JWT_EXPIRES_IN` | Expiración del token | `7d` |
+| `CORS_ORIGINS` | Orígenes permitidos (coma) | `http://127.0.0.1:5500,https://tu-app.vercel.app` |
 
-> No subas el `.env` al repo. Está en `.gitignore`.
-
-Ejemplo de `.env`:
+> No subas el `.env`. Está en `.gitignore`.
 
 ```env
 PORT=3000
 MONGODB_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net
 MONGODB_DATABASE=gym
+JWT_SECRET=replace-with-openssl-rand-base64-32-output
+JWT_EXPIRES_IN=7d
 CORS_ORIGINS=http://127.0.0.1:5500,http://localhost:5500
 ```
 
@@ -67,174 +71,68 @@ npm run test         # unit tests
 npm run test:e2e     # e2e
 ```
 
-## Endpoints
+## Módulos
 
-Base: `http://localhost:3000`
-
-### `GET /exercises`
-
-Lista ejercicios paginados, con filtros opcionales.
-
-**Query params**
-
-| Param | Tipo | Default | Notas |
-|---|---|---|---|
-| `page` | number | `1` | ≥ 1 |
-| `limit` | number | `50` | 1–100 |
-| `category` | string | — | match exacto |
-| `bodyPart` | string | — | mapea a `body_part` |
-| `target` | string | — | match exacto |
-| `equipment` | string | — | match exacto |
-| `muscleGroup` | string | — | mapea a `muscle_group` |
-
-**Ejemplo**
-
-```http
-GET /exercises?page=1&limit=20&category=waist&equipment=body%20weight
-```
-
-**Respuesta**
-
-```json
-{
-  "data": [ /* ejercicios */ ],
-  "limit": 20,
-  "page": 1,
-  "pages": 10,
-  "total": 200
-}
-```
-
-### `GET /exercises/labels`
-
-Valores únicos para armar filtros en el front (`category`, `equipment`, `target`).
-
-```http
-GET /exercises/labels
-```
-
-```json
-{
-  "category": ["back", "chest", "waist"],
-  "equipment": ["barbell", "body weight"],
-  "target": ["abs", "biceps"]
-}
-```
-
-### `GET /exercises/random`
-
-Devuelve un ejercicio al azar.
-
-```http
-GET /exercises/random
-```
-
-### `GET /exercises/:id`
-
-Detalle por id de negocio (ej. `"0001"`), no el `_id` de Mongo.
-
-```http
-GET /exercises/0001
-```
-
-## Modelo de exercise (resumen)
-
-Campos principales en Mongo:
-
-| Campo | Uso |
+| Módulo | Responsabilidad |
 |---|---|
-| `id` | Id de negocio (`0001`) |
-| `name` | Nombre |
-| `category` / `body_part` / `equipment` | Filtros |
-| `muscle_group` / `secondary_muscles` / `target` | Músculos |
-| `instructions` / `instruction_steps` | Textos multi-idioma |
-| `image` / `gif_url` | Rutas relativas de media |
-| `media_id` / `attribution` / `created_at` | Meta |
+| `auth` | Register / login, JWT, `RolesGuard` |
+| `users` | Perfil, training program, invites, athletes, export |
+| `exercises` | Catálogo, labels, random, recommend |
+| `admin` | Grant / revoke de subscription |
+| `excel` · `zip` | Export de planes coach |
+| `database` | Conexión Mongo |
+| `common` | Pipes Joi, hashing, error codes HTTP |
 
-Ejemplo de media en el front:
+Flujo típico: `Controller → Service → Repository → MongoDB`.
 
-```ts
-const imageUrl = `/${exercise.image}`   // /images/0001-xxx.jpg
-const gifUrl = `/${exercise.gif_url}`   // /videos/0001-xxx.gif
-```
-
-Las imágenes/gifs viven como estáticos en el frontend (`public/images`, `public/videos`), no en este API.
-
-### Users / coach (resumen)
-
-Fuente de verdad de forma: Swagger en `/docs`. Pendientes: [`TODO.md`](./TODO.md).
-
-`GET /users/me` alcanza para chrome de sesión. A futuro (ítems de menú **Mi perfil** / **Configuración** en el FE, hoy deshabilitados): update de perfil y preferencias.
-
-| Método | Path | Notas |
-|--------|------|--------|
-| `GET` | `/users/me` | Perfil + programs enriquecidos (sin invite) |
-| `GET` | `/users/me/pending-coach-invite` | `{ invite: null \| {...} }` |
-| `POST` | `/users/coach/invites` | Invite por email exacto → colección `invites` |
-| `POST` | `/users/me/pending-coach-invite/respond` | accept / reject |
-| `GET` | `/users/coach/athletes` | Alumnos del coach (paginado) |
-| `GET` | `/users/coach/invites` | Historial invites (`status` opcional, page, limit) |
-| `PUT` | `/users/coach/athletes/:id/training-program` | Replace `coachTrainingProgram` |
-| `POST` | `/users/coach/training-program/export` | Excel/zip binary |
+Roles: `athlete` | `coach` | `admin`. Subscription: `free` | `premium` | `growth` | `pro` (cuotas de alumnos por plan en coaches).
 
 ## Estructura
 
 ```text
 src/
-  auth/                  # JWT login / register
-  common/
-    dto/                 # PaginatedResponse
-    pipes/               # JoiValidationPipe
-  database/              # Conexión Mongo (DatabaseModule)
-  excel/ · zip/          # Export de pautas
+  admin/
+  auth/           # JWT, guards, strategies
+  common/         # dto, pipes, hashing, errors
+  config/         # validación de env
+  database/
+  excel/ · zip/
   exercises/
-    dto/ · repositories/ · schemas/
-    exercises.controller.ts · service · module
-  users/
-    dto/ · repositories/ · schemas/  # User + Invite
-    users.controller.ts · service · module
+  users/          # User + Invite schemas, quotas
   app.module.ts
-  main.ts                # CORS (exposedHeaders Content-Disposition), Swagger, Morgan
+  main.ts         # CORS, Swagger, Morgan
+docs/
+  API-ENDPOINTS.md
+  TODO.md
 ```
 
-Flujo típico:
+## Documentación
 
-```text
-Controller → Service → Repository → MongoDB
-```
+| Doc | Contenido |
+|---|---|
+| Swagger | `http://localhost:3000/docs` (interactivo) |
+| [`docs/API-ENDPOINTS.md`](docs/API-ENDPOINTS.md) | Catálogo de endpoints, shapes, error codes |
+| [`docs/TODO.md`](docs/TODO.md) | Hechos / pendientes del back |
+
+Las imágenes/GIFs del catálogo se resuelven en el frontend (`public/images`, `public/videos`) a partir de rutas relativas del documento exercise.
 
 ## CORS
 
-Configura los orígenes del front en `CORS_ORIGINS`.
-
-Local (Live Server):
+Configurá orígenes del front en `CORS_ORIGINS`.
 
 ```env
+# Local (Live Server / static serve)
 CORS_ORIGINS=http://127.0.0.1:5500,http://localhost:5500
-```
 
-Producción (front en Vercel + API en otro host):
-
-```env
+# Producción
 CORS_ORIGINS=https://tu-app.vercel.app
 ```
 
-## Documentación interactiva
+## Deploy
 
-Con el server corriendo:
-
-[http://localhost:3000/docs](http://localhost:3000/docs)
-
-Catálogo escrito de endpoints (auth, users, subscription, admin, error codes):  
-[`docs/API-ENDPOINTS.md`](docs/API-ENDPOINTS.md)
-
-Roadmap / hechos: [`TODO.md`](TODO.md)
-
-## Notas de deploy
-
-- Este backend es NestJS “clásico”: conviene hostearlo en Railway, Render, Fly.io, etc.
-- Vercel encaja mejor para el frontend.
-- En el host del API configura las mismas variables de entorno (`MONGODB_URI`, `MONGODB_DATABASE`, `CORS_ORIGINS`, `PORT`).
+- NestJS “clásico”: Railway, Render, Fly.io, etc.
+- En el host configurá las mismas variables (`MONGODB_*`, `JWT_*`, `CORS_ORIGINS`, `PORT`).
+- El frontend suele ir aparte (p. ej. Vercel).
 
 ## Licencia
 

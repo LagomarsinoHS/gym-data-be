@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import * as Joi from 'joi';
+import {
+  GRANTABLE_SUBSCRIPTION_PLANS,
+  SubscriptionPlan,
+} from '../../users/types/subscription-plan.enum';
+import type { GrantableSubscriptionPlan } from '../../users/types/subscription-plan.enum';
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -10,10 +15,18 @@ export class GrantPremiumDto {
   })
   email: string;
 
+  @ApiProperty({
+    enum: GRANTABLE_SUBSCRIPTION_PLANS,
+    example: SubscriptionPlan.Premium,
+    description:
+      'Paid plan to grant. Athlete: premium. Coach: growth | pro (premium not recommended for coaches).',
+  })
+  plan: GrantableSubscriptionPlan;
+
   @ApiPropertyOptional({
     example: 30,
     description:
-      'Days of premium from now (ignored if expiresAt is set). Default 30.',
+      'Days of access from now (ignored if expiresAt is set). Default 30.',
   })
   durationDays?: number;
 
@@ -27,6 +40,9 @@ export class GrantPremiumDto {
 
 export const grantPremiumSchema = Joi.object<GrantPremiumDto>({
   email: Joi.string().trim().lowercase().email().required(),
+  plan: Joi.string()
+    .valid(...GRANTABLE_SUBSCRIPTION_PLANS)
+    .required(),
   durationDays: Joi.number().integer().min(1).max(3650),
   expiresAt: Joi.string()
     .pattern(YMD)
