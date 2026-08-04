@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -10,10 +11,13 @@ import {
   throwApiForbidden,
   throwApiNotFound,
 } from '../common/errors/api-http.exception';
+import { StorageService } from '../storage/storage.service';
+import { progressPhotoFolder } from '../storage/constants';
 import { UsersRepository } from './repositories/users.repository';
 import { InvitesRepository } from './repositories/invites.repository';
 import {
   CoachTrainingProgram,
+  ProgressPhoto,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -32,6 +36,12 @@ import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
 import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
 import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto';
+import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
+import { UploadProgressPhotoDto } from './dto/upload-progress-photo.dto';
+import { DeleteProgressPhotoDto } from './dto/delete-progress-photo.dto';
+import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
+import { currentYearMonth } from './utils/year-month';
+import { groupProgressPhotos } from './utils/group-progress-photos';
 import {
   DEFAULT_EXCEL_LOCALE,
   EXCEL_TRAINING_PROGRAM_HEADERS,
@@ -57,6 +67,12 @@ export type CoachTrainingProgramExportFile = {
   filename: string;
 };
 
+const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -65,10 +81,153 @@ export class UsersService {
     private readonly exercisesService: ExercisesService,
     private readonly excelService: ExcelService,
     private readonly zipService: ZipService,
+    private readonly storageService: StorageService,
   ) {}
 
   findByEmail(email: string): Promise<UserDocument | null> {
     return this.usersRepository.findByEmail(email);
+  }
+
+  async uploadProgressPhoto(
+    athleteId: string,
+    file: Express.Multer.File,
+    dto: UploadProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Image file is required');
+    }
+
+    if (!ALLOWED_PROGRESS_PHOTO_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException(
+        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
+      );
+    }
+
+    const user = await this.findByIdOrFail(athleteId);
+
+    const yearMonth = currentYearMonth();
+    const side = dto.side;
+
+    const uploaded = await this.storageService.uploadImage({
+      buffer: file.buffer,
+      folder: progressPhotoFolder(athleteId, yearMonth),
+      publicId: side,
+      overwrite: true,
+    });
+
+    const photo: ProgressPhoto = {
+      url: uploaded.secureUrl,
+      publicId: uploaded.publicId,
+      uploadedAt: new Date(),
+    };
+
+    const progressPhotos = user.progressPhotos.map((entry) => ({
+      yearMonth: entry.yearMonth,
+      front: entry.front ?? null,
+      back: entry.back ?? null,
+    }));
+
+    let month = progressPhotos.find((entry) => entry.yearMonth === yearMonth);
+    if (!month) {
+      month = { yearMonth, front: null, back: null };
+      progressPhotos.push(month);
+    }
+    month[side] = photo;
+
+    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
+
+    return {
+      yearMonth,
+      front: month.front
+        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
+        : null,
+      back: month.back
+        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
+        : null,
+    };
+  }
+
+  async deleteProgressPhoto(
+    athleteId: string,
+    dto: DeleteProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    const user = await this.findByIdOrFail(athleteId);
+    const { yearMonth, side } = dto;
+
+    const progressPhotos = user.progressPhotos.map((entry) => ({
+      yearMonth: entry.yearMonth,
+      front: entry.front ?? null,
+      back: entry.back ?? null,
+    }));
+
+    const monthIndex = progressPhotos.findIndex(
+      (entry) => entry.yearMonth === yearMonth,
+    );
+    if (monthIndex < 0) {
+      throw new NotFoundException(`No progress photos for month ${yearMonth}`);
+    }
+
+    const month = progressPhotos[monthIndex];
+
+    if (side) {
+      const existing = month[side];
+      if (!existing) {
+        throw new NotFoundException(
+          `No ${side} progress photo for month ${yearMonth}`,
+        );
+      }
+
+      await this.storageService.deleteImage(existing.publicId, {
+        ignoreNotFound: true,
+      });
+      month[side] = null;
+
+      if (!month.front && !month.back) {
+        progressPhotos.splice(monthIndex, 1);
+        await this.storageService.deleteFolder(
+          progressPhotoFolder(athleteId, yearMonth),
+        );
+      }
+    } else {
+      await this.storageService.deleteFolder(
+        progressPhotoFolder(athleteId, yearMonth),
+      );
+      progressPhotos.splice(monthIndex, 1);
+      month.front = null;
+      month.back = null;
+    }
+
+    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
+
+    return {
+      yearMonth,
+      front: month.front
+        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
+        : null,
+      back: month.back
+        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
+        : null,
+    };
+  }
+
+  async getProgressPhotos(
+    requester: { userId: string; role: Role },
+    targetUserId: string,
+    year?: number,
+  ): Promise<ProgressPhotosResponseDto> {
+    const target = await this.findByIdOrFail(targetUserId);
+
+    const isSelf = requester.userId === targetUserId;
+    const isAssignedCoach =
+      requester.role === Role.Coach && target.coachId === requester.userId;
+
+    if (!isSelf && !isAssignedCoach) {
+      throw new ForbiddenException(
+        'You can only view your own progress photos or those of your athletes',
+      );
+    }
+
+    return groupProgressPhotos(target.progressPhotos ?? [], year);
   }
 
   async getCoachAthletes(

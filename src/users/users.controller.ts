@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -9,12 +10,17 @@ import {
   Put,
   Query,
   StreamableFile,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
+  ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
@@ -74,6 +80,20 @@ import {
   UpdateTrainingProgramExerciseDto,
   updateTrainingProgramExerciseSchema,
 } from './dto/update-training-program-exercise.dto';
+import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
+import {
+  UploadProgressPhotoDto,
+  uploadProgressPhotoSchema,
+} from './dto/upload-progress-photo.dto';
+import {
+  DeleteProgressPhotoDto,
+  deleteProgressPhotoSchema,
+} from './dto/delete-progress-photo.dto';
+import {
+  GetProgressPhotosQueryDto,
+  getProgressPhotosQuerySchema,
+} from './dto/get-progress-photos-query.dto';
+import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
 import { Role } from './types/role.enum';
 import { UsersService } from './users.service';
 
@@ -134,6 +154,70 @@ export class UsersController {
     return this.usersService.respondToCoachInvite(user.userId, dto.action);
   }
 
+  @Post('me/progress-photos')
+  @Roles(Role.Athlete)
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload a progress photo for the current month',
+    description:
+      'Athlete only. Multipart: `file` (image) + `side` (`front` | `back`). Saves to Cloudinary and upserts user.progressPhotos for the current UTC YYYY-MM. Replacing the same side overwrites the Cloudinary asset (fixed publicId).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'side'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        side: {
+          type: 'string',
+          enum: ['front', 'back'],
+          example: 'front',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: UploadProgressPhotoResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiBadRequestResponse({ description: 'Missing/invalid file or side' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  uploadProgressPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body(new JoiValidationPipe(uploadProgressPhotoSchema))
+    dto: UploadProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    return this.usersService.uploadProgressPhoto(user.userId, file, dto);
+  }
+
+  @Delete('me/progress-photos')
+  @Roles(Role.Athlete)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a progress photo or a whole month',
+    description:
+      'Athlete only. Body: `yearMonth` (YYYY-MM) required. Optional `side` (`front` | `back`): if omitted, deletes front + back and the Cloudinary month folder; if set, deletes only that side (and the folder when both sides become empty).',
+  })
+  @ApiBody({ type: DeleteProgressPhotoDto })
+  @ApiOkResponse({ type: UploadProgressPhotoResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiBadRequestResponse({ description: 'Invalid yearMonth or side' })
+  @ApiNotFoundResponse({ description: 'User, month, or side photo not found' })
+  deleteProgressPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(deleteProgressPhotoSchema))
+    dto: DeleteProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    return this.usersService.deleteProgressPhoto(user.userId, dto);
+  }
+
   @Get('coach/athletes')
   @Roles(Role.Coach)
   @ApiOperation({
@@ -181,6 +265,35 @@ export class UsersController {
     );
 
     return new PaginatedResponse(data, query.page, query.limit, total);
+  }
+
+  @Get(':userId/progress-photos')
+  @ApiOperation({
+    summary: 'Get progress photos grouped by year and month',
+    description:
+      'Allowed if the JWT user is the target, or a coach assigned to that athlete. Optional `year` filters to one calendar year. Response exposes urls only (no publicId).',
+  })
+  @ApiParam({
+    name: 'userId',
+    example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45',
+  })
+  @ApiOkResponse({ type: ProgressPhotosResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description: 'Not self and not the athlete assigned coach',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  getProgressPhotos(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('userId') userId: string,
+    @Query(
+      new JoiValidationPipe(getProgressPhotosQuerySchema, {
+        stripUnknown: false,
+      }),
+    )
+    query: GetProgressPhotosQueryDto,
+  ): Promise<ProgressPhotosResponseDto> {
+    return this.usersService.getProgressPhotos(user, userId, query.year);
   }
 
   @Get(':id')

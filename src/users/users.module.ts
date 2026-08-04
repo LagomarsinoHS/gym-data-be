@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ExcelModule } from '../excel/excel.module';
 import { ExercisesModule } from '../exercises/exercises.module';
+import { StorageModule } from '../storage/storage.module';
 import { ZipModule } from '../zip/zip.module';
 import { InvitesRepository } from './repositories/invites.repository';
 import { UsersRepository } from './repositories/users.repository';
@@ -19,6 +20,7 @@ import { UsersService } from './users.service';
     ExercisesModule,
     ExcelModule,
     ZipModule,
+    StorageModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository, InvitesRepository],

@@ -6,7 +6,7 @@ export type CoachSubscriptionPlan =
 
 /** Max assigned athletes (coachId set) per coach plan. */
 export const COACH_ATHLETE_LIMITS: Record<CoachSubscriptionPlan, number> = {
-  [SubscriptionPlan.Free]: 5,
+  [SubscriptionPlan.Free]: 2,
   [SubscriptionPlan.Growth]: 10,
   [SubscriptionPlan.Pro]: 20,
 };

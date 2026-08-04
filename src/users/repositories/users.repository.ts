@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   CoachTrainingProgram,
+  ProgressPhotoMonth,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -218,6 +219,15 @@ export class UsersRepository {
       .exec();
 
     return result.matchedCount > 0;
+  }
+
+  async setProgressPhotos(
+    userId: string,
+    progressPhotos: ProgressPhotoMonth[],
+  ): Promise<void> {
+    await this.userModel
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set: { progressPhotos } })
+      .exec();
   }
 
   private buildAthletesByCoachFilter(

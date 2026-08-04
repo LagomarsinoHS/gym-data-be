@@ -208,6 +208,69 @@ Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `e
 
 ---
 
+### `POST /users/me/progress-photos`
+
+| | |
+|---|---|
+| Auth | JWT + **athlete** |
+| Body | `multipart/form-data` |
+| Respuesta | `201` — `{ yearMonth, front, back }` (`front`/`back` exponen `url` + `uploadedAt`; sin `publicId`) |
+| Errores | `403` si el role no es athlete; `400` file/side inválidos |
+
+**Campos**
+
+| Campo | | Notas |
+|---|---|---|
+| `file` | Obligatorio | imagen jpeg/png/webp, máx 5MB |
+| `side` | Obligatorio | `front` \| `back` |
+
+Sube a Cloudinary (`gym-app/progress/{userId}/{YYYY}/{mon}/{side}`, mon = `jan`…`dec`), upsert en `user.progressPhotos` del mes UTC actual. Re-subir el mismo `side` sobrescribe vía `publicId` fijo (`front`/`back`) + overwrite (sin delete aparte).
+
+---
+
+### `DELETE /users/me/progress-photos`
+
+| | |
+|---|---|
+| Auth | JWT + **athlete** |
+| Body | JSON |
+| Respuesta | `200` — `{ yearMonth, front, back }` (estado del mes tras el delete; ambos `null` si se borró el mes entero) |
+| Errores | `403` si no es athlete; `404` si no hay mes / side; `400` yearMonth inválido |
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `yearMonth` | Obligatorio | `YYYY-MM` |
+| `side` | Opcional | `front` \| `back`. Si falta → borra mes completo (assets + carpeta Cloudinary) |
+
+```json
+{ "yearMonth": "2026-08", "side": "front" }
+```
+
+```json
+{ "yearMonth": "2026-08" }
+```
+
+---
+
+### `GET /users/:userId/progress-photos`
+
+| | |
+|---|---|
+| Auth | JWT |
+| Query | `year` opcional (ej. `2026`) |
+| Respuesta | `200` — `{ years: [{ year, months: [{ month, yearMonth, front, back }] }] }` (años/meses más nuevos primero; `front`/`back` = `{ url, uploadedAt }` o `null`) |
+| Authz | `userId === jwt.sub` **o** coach con `athlete.coachId === jwt.sub` |
+| Errores | `403` si no autorizado; `404` si el user no existe |
+
+```http
+GET /users/{userId}/progress-photos
+GET /users/{userId}/progress-photos?year=2026
+```
+
+---
+
 ### `GET /users/coach/athletes`
 
 | | |
@@ -595,6 +658,6 @@ Growth (coach) ejemplo:
 |---|---|---|
 | Auth | 2 | público |
 | Exercises | 5 | público |
-| Users | 13 | JWT |
-| Admin | 2 | JWT + admin |
-| **Total** | **22** | |
+| Users | 16 | JWT |
+| Admin | 3 | JWT + admin |
+| **Total** | **26** | |

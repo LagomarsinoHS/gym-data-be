@@ -4,12 +4,17 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiBadRequestResponse,
+  ApiConsumes,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -21,6 +26,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
+import type { UploadImageResult } from '../storage/storage.service';
 import { MeResponseDto } from '../users/dto/me-response.dto';
 import { Role } from '../users/types/role.enum';
 import { AdminService } from './admin.service';
@@ -37,6 +43,45 @@ import {
 @ApiBearerAuth()
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  @Post('storage/upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload an image to Cloudinary (test)',
+    description:
+      'Requires admin role. Multipart form: field `file` (image) and optional `folder` (default: uploads).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        folder: {
+          type: 'string',
+          example: 'uploads',
+          description: 'Cloudinary folder (optional)',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({ description: 'Image uploaded' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires admin role' })
+  @ApiBadRequestResponse({ description: 'Missing or invalid image file' })
+  uploadImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('folder') folder?: string,
+  ): Promise<UploadImageResult> {
+    console.log({file, folder});
+    return this.adminService.uploadImage(file, folder);
+  }
 
   @Post('subscriptions/grant')
   @HttpCode(HttpStatus.OK)

@@ -17,4 +17,20 @@ export const envValidationSchema = Joi.object({
   }),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
   CORS_ORIGINS: Joi.string().allow('').optional(),
+  CLOUDINARY_CLOUD_NAME: Joi.string().min(1).required().messages({
+    'any.required':
+      'Missing required environment variable: CLOUDINARY_CLOUD_NAME',
+    'string.empty':
+      'Missing required environment variable: CLOUDINARY_CLOUD_NAME',
+  }),
+  CLOUDINARY_API_KEY: Joi.string().min(1).required().messages({
+    'any.required': 'Missing required environment variable: CLOUDINARY_API_KEY',
+    'string.empty': 'Missing required environment variable: CLOUDINARY_API_KEY',
+  }),
+  CLOUDINARY_API_SECRET: Joi.string().min(1).required().messages({
+    'any.required':
+      'Missing required environment variable: CLOUDINARY_API_SECRET',
+    'string.empty':
+      'Missing required environment variable: CLOUDINARY_API_SECRET',
+  }),
 });

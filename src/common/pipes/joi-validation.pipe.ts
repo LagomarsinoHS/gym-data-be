@@ -4,17 +4,21 @@ import {
   Injectable,
   PipeTransform,
 } from '@nestjs/common';
-import type { ObjectSchema } from 'joi';
+import type { ObjectSchema, ValidationOptions } from 'joi';
 
 @Injectable()
 export class JoiValidationPipe implements PipeTransform {
-  constructor(private readonly schema: ObjectSchema) {}
+  constructor(
+    private readonly schema: ObjectSchema,
+    private readonly options?: ValidationOptions,
+  ) {}
 
   transform(value: unknown, _metadata: ArgumentMetadata) {
     const { error, value: validated } = this.schema.validate(value, {
       abortEarly: false,
       stripUnknown: true,
       convert: true,
+      ...this.options,
     });
 
     if (error) {

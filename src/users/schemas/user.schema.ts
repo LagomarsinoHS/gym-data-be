@@ -79,6 +79,50 @@ export class CoachTrainingProgram {
   items: TrainingProgramExercise[];
 }
 
+@Schema({ _id: false })
+export class ProgressPhoto {
+  @ApiProperty({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1/progress/user/front.png',
+  })
+  @Prop({ required: true })
+  url: string;
+
+  @ApiProperty({ example: 'progress/user-id/2026-08-front' })
+  @Prop({ required: true })
+  publicId: string;
+
+  @ApiProperty({ example: '2026-08-04T18:00:00.000Z' })
+  @Prop({ type: Date, required: true })
+  uploadedAt: Date;
+}
+
+@Schema({ _id: false })
+export class ProgressPhotoMonth {
+  @ApiProperty({
+    example: '2026-08',
+    description: 'Calendar month key YYYY-MM (unique per user)',
+  })
+  @Prop({ required: true })
+  yearMonth: string;
+
+  @ApiPropertyOptional({
+    type: ProgressPhoto,
+    nullable: true,
+    description: 'Front progress photo for this month, if uploaded',
+  })
+  @Prop({ type: ProgressPhoto, default: null })
+  front: ProgressPhoto | null;
+
+  @ApiPropertyOptional({
+    type: ProgressPhoto,
+    nullable: true,
+    description: 'Back progress photo for this month, if uploaded',
+  })
+  @Prop({ type: ProgressPhoto, default: null })
+  back: ProgressPhoto | null;
+}
+
 @Schema({ timestamps: true, collection: 'users', id: false })
 export class User {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
@@ -140,6 +184,15 @@ export class User {
   })
   @Prop({ type: [CoachTrainingProgram], default: [] })
   coachTrainingProgram: CoachTrainingProgram[];
+
+  @ApiProperty({
+    type: [ProgressPhotoMonth],
+    default: [],
+    description:
+      'Athlete progress photos by month (front/back). Not returned on /me yet — dedicated endpoints.',
+  })
+  @Prop({ type: [ProgressPhotoMonth], default: [] })
+  progressPhotos: ProgressPhotoMonth[];
 
   @ApiPropertyOptional({
     example: '2026-08-02T18:00:00.000Z',

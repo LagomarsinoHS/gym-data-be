@@ -21,8 +21,57 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 
 ## Pendiente — back
 
+### Fotos de progreso (atleta → Cloudinary → coach)
+
+Modelo en `User` (array `progressPhotos`, mismo estilo que `trainingProgram`):
+
+```ts
+progressPhotos: {
+  yearMonth: string; // 'YYYY-MM' — único por usuario; el mes lo calcula el BE al subir
+  front: { url: string; publicId: string; uploadedAt: Date } | null;
+  back:  { url: string; publicId: string; uploadedAt: Date } | null;
+}[]
+```
+
+- Máx **2 fotos por mes**: `front` y `back` (reemplazar el mismo side reescribe el slot; ideal borrar `publicId` viejo en Cloudinary).
+- Guardar `url` (`secureUrl`) para render + `publicId` para delete/replace.
+- No usar nombres de mes en BD; el FE traduce `1 → Enero`.
+
+Checklist:
+- [x] Módulo `storage` (Cloudinary): upload / list folder / get / delete
+- [x] Admin test: `POST /admin/storage/upload` (multipart `file` + `folder?`)
+- [x] Schema: `progressPhotos` en `User` (default `[]`)
+- [x] Atleta: `POST /users/me/progress-photos` — multipart `file` + `side: front|back`; Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}` (mon = jan…dec); upsert mes UTC (`YYYY-MM`); overwrite vía publicId `front`/`back`
+- [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo
+- [x] **GET único** `GET /users/:userId/progress-photos` — response `{ years: [{ year, months: [...] }] }`; authz self ó coach asignado; query opcional `?year=2026`
+- [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
+- [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / DELETE / GET)
+
+Response del GET:
+
+```json
+{
+  "years": [
+    {
+      "year": 2026,
+      "months": [
+        {
+          "month": 1,
+          "yearMonth": "2026-01",
+          "front": { "url": "...", "uploadedAt": "..." },
+          "back": { "url": "...", "uploadedAt": "..." }
+        }
+      ]
+    }
+  ]
+}
+```
+
+> `publicId` se guarda en Mongo para delete/replace en el back; el GET puede omitirlo y devolver solo lo que pinta el front.
+
+### Resto
+
 - [ ] Migrar más excepciones a `ApiErrorCode` (auth, ownership, export…)
-- [ ] (Opcional) Fotos de progreso: storage (S3/R2) + collection metadata
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
 - [ ] **Mi perfil** — `PATCH` (o similar) para actualizar nombre / datos editables del user
