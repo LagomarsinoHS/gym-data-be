@@ -28,29 +28,37 @@ Modelo en `User` (array `progressPhotos`, mismo estilo que `trainingProgram`):
 ```ts
 progressPhotos: {
   yearMonth: string; // 'YYYY-MM' — único por usuario; el mes lo calcula el BE al subir
+  weightKg: number | null; // peso del avance de ese mes
   front: { url: string; publicId: string; uploadedAt: Date } | null;
   back:  { url: string; publicId: string; uploadedAt: Date } | null;
 }[]
+
+// Denormalizado en User:
+currentWeightKg: number | null; // = weightKg del yearMonth más reciente con peso
 ```
 
-- Máx **2 fotos por mes**: `front` y `back` (reemplazar el mismo side reescribe el slot; ideal borrar `publicId` viejo en Cloudinary).
+- Máx **2 fotos por mes**: `front` y `back` (reemplazar el mismo side reescribe el slot; overwrite vía publicId fijo).
 - Guardar `url` (`secureUrl`) para render + `publicId` para delete/replace.
 - No usar nombres de mes en BD; el FE traduce `1 → Enero`.
+- **Regla de envío:** `POST` multipart exige `weightKg` **y** ≥ 1 foto (`front` y/o `back`). Setea el peso del mes UTC actual y recalcula `currentWeightKg`.
 
 Checklist:
 - [x] Módulo `storage` (Cloudinary): upload / list folder / get / delete
 - [x] Admin test: `POST /admin/storage/upload` (multipart `file` + `folder?`)
 - [x] Schema: `progressPhotos` en `User` (default `[]`)
-- [x] Atleta: `POST /users/me/progress-photos` — multipart `file` + `side: front|back`; Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}` (mon = jan…dec); upsert mes UTC (`YYYY-MM`); overwrite vía publicId `front`/`back`
-- [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo
-- [x] **GET único** `GET /users/:userId/progress-photos` — response `{ years: [{ year, months: [...] }] }`; authz self ó coach asignado; query opcional `?year=2026`
+- [x] Schema: `weightKg` por mes + `currentWeightKg` en `User` (recompute al mutar)
+- [x] Atleta: `POST /users/me/progress-photos` — multipart `weightKg` + `front`? + `back`? (≥1 foto); Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}`; upsert mes UTC; setea `weightKg` + `currentWeightKg`
+- [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo + recompute peso
+- [x] **GET único** `GET /users/:userId/progress-photos` — `{ currentWeightKg, years: [...] }`; authz self ó coach asignado; query opcional `?year=2026`
 - [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
 - [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / DELETE / GET)
+- [x] `currentWeightKg` también en `MeResponseDto` (`/me`, coach athletes)
 
 Response del GET:
 
 ```json
 {
+  "currentWeightKg": 72.5,
   "years": [
     {
       "year": 2026,
@@ -58,6 +66,7 @@ Response del GET:
         {
           "month": 1,
           "yearMonth": "2026-01",
+          "weightKg": 72.5,
           "front": { "url": "...", "uploadedAt": "..." },
           "back": { "url": "...", "uploadedAt": "..." }
         }

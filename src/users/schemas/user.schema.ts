@@ -107,6 +107,14 @@ export class ProgressPhotoMonth {
   yearMonth: string;
 
   @ApiPropertyOptional({
+    example: 72.5,
+    nullable: true,
+    description: 'Body weight in kg recorded for this month’s progress entry',
+  })
+  @Prop({ type: Number, default: null })
+  weightKg: number | null;
+
+  @ApiPropertyOptional({
     type: ProgressPhoto,
     nullable: true,
     description: 'Front progress photo for this month, if uploaded',
@@ -189,10 +197,19 @@ export class User {
     type: [ProgressPhotoMonth],
     default: [],
     description:
-      'Athlete progress photos by month (front/back). Not returned on /me yet — dedicated endpoints.',
+      'Athlete progress photos by month (front/back). Not returned on /me — dedicated endpoints.',
   })
   @Prop({ type: [ProgressPhotoMonth], default: [] })
   progressPhotos: ProgressPhotoMonth[];
+
+  @ApiPropertyOptional({
+    example: 72.5,
+    nullable: true,
+    description:
+      'Latest weightKg from progressPhotos (newest yearMonth with a weight). Recalculated on progress mutations.',
+  })
+  @Prop({ type: Number, default: null })
+  currentWeightKg: number | null;
 
   @ApiPropertyOptional({
     example: '2026-08-02T18:00:00.000Z',

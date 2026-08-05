@@ -16,6 +16,13 @@ export class UploadProgressPhotoResponseDto {
   yearMonth: string;
 
   @ApiPropertyOptional({
+    example: 72.5,
+    nullable: true,
+    description: 'Weight in kg for this month, if recorded',
+  })
+  weightKg: number | null;
+
+  @ApiPropertyOptional({
     type: ProgressPhotoPublicDto,
     nullable: true,
     description: 'Front photo for the month after this upload',

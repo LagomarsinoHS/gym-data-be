@@ -17,7 +17,6 @@ import { UsersRepository } from './repositories/users.repository';
 import { InvitesRepository } from './repositories/invites.repository';
 import {
   CoachTrainingProgram,
-  ProgressPhoto,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -42,6 +41,7 @@ import { DeleteProgressPhotoDto } from './dto/delete-progress-photo.dto';
 import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
 import { currentYearMonth } from './utils/year-month';
 import { groupProgressPhotos } from './utils/group-progress-photos';
+import { cloneProgressPhotoMonths } from './utils/progress-photo-weight';
 import {
   DEFAULT_EXCEL_LOCALE,
   EXCEL_TRAINING_PROGRAM_HEADERS,
@@ -90,54 +90,67 @@ export class UsersService {
 
   async uploadProgressPhoto(
     athleteId: string,
-    file: Express.Multer.File,
+    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
     dto: UploadProgressPhotoDto,
   ): Promise<UploadProgressPhotoResponseDto> {
-    if (!file?.buffer?.length) {
-      throw new BadRequestException('Image file is required');
-    }
+    const frontFile = files?.front?.[0];
+    const backFile = files?.back?.[0];
 
-    if (!ALLOWED_PROGRESS_PHOTO_MIME_TYPES.has(file.mimetype)) {
+    if (!frontFile && !backFile) {
       throw new BadRequestException(
-        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
+        'At least one image is required: front and/or back',
       );
     }
 
+    this.assertProgressPhotoFile(frontFile);
+    this.assertProgressPhotoFile(backFile);
+
     const user = await this.findByIdOrFail(athleteId);
-
     const yearMonth = currentYearMonth();
-    const side = dto.side;
-
-    const uploaded = await this.storageService.uploadImage({
-      buffer: file.buffer,
-      folder: progressPhotoFolder(athleteId, yearMonth),
-      publicId: side,
-      overwrite: true,
-    });
-
-    const photo: ProgressPhoto = {
-      url: uploaded.secureUrl,
-      publicId: uploaded.publicId,
-      uploadedAt: new Date(),
-    };
-
-    const progressPhotos = user.progressPhotos.map((entry) => ({
-      yearMonth: entry.yearMonth,
-      front: entry.front ?? null,
-      back: entry.back ?? null,
-    }));
+    const folder = progressPhotoFolder(athleteId, yearMonth);
+    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
 
     let month = progressPhotos.find((entry) => entry.yearMonth === yearMonth);
     if (!month) {
-      month = { yearMonth, front: null, back: null };
+      month = { yearMonth, weightKg: null, front: null, back: null };
       progressPhotos.push(month);
     }
-    month[side] = photo;
+
+    if (frontFile) {
+      const uploaded = await this.storageService.uploadImage({
+        buffer: frontFile.buffer,
+        folder,
+        publicId: 'front',
+        overwrite: true,
+      });
+      month.front = {
+        url: uploaded.secureUrl,
+        publicId: uploaded.publicId,
+        uploadedAt: new Date(),
+      };
+    }
+
+    if (backFile) {
+      const uploaded = await this.storageService.uploadImage({
+        buffer: backFile.buffer,
+        folder,
+        publicId: 'back',
+        overwrite: true,
+      });
+      month.back = {
+        url: uploaded.secureUrl,
+        publicId: uploaded.publicId,
+        uploadedAt: new Date(),
+      };
+    }
+
+    month.weightKg = dto.weightKg;
 
     await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
 
     return {
       yearMonth,
+      weightKg: month.weightKg,
       front: month.front
         ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
         : null,
@@ -147,6 +160,18 @@ export class UsersService {
     };
   }
 
+  private assertProgressPhotoFile(file?: Express.Multer.File): void {
+    if (!file) return;
+    if (!file.buffer?.length) {
+      throw new BadRequestException('Image file is required');
+    }
+    if (!ALLOWED_PROGRESS_PHOTO_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException(
+        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
+      );
+    }
+  }
+
   async deleteProgressPhoto(
     athleteId: string,
     dto: DeleteProgressPhotoDto,
@@ -154,11 +179,7 @@ export class UsersService {
     const user = await this.findByIdOrFail(athleteId);
     const { yearMonth, side } = dto;
 
-    const progressPhotos = user.progressPhotos.map((entry) => ({
-      yearMonth: entry.yearMonth,
-      front: entry.front ?? null,
-      back: entry.back ?? null,
-    }));
+    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
 
     const monthIndex = progressPhotos.findIndex(
       (entry) => entry.yearMonth === yearMonth,
@@ -183,6 +204,7 @@ export class UsersService {
       month[side] = null;
 
       if (!month.front && !month.back) {
+        month.weightKg = null;
         progressPhotos.splice(monthIndex, 1);
         await this.storageService.deleteFolder(
           progressPhotoFolder(athleteId, yearMonth),
@@ -195,12 +217,14 @@ export class UsersService {
       progressPhotos.splice(monthIndex, 1);
       month.front = null;
       month.back = null;
+      month.weightKg = null;
     }
 
     await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
 
     return {
       yearMonth,
+      weightKg: month.weightKg ?? null,
       front: month.front
         ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
         : null,
@@ -298,6 +322,7 @@ export class UsersService {
       password: _password,
       trainingProgram,
       coachTrainingProgram,
+      progressPhotos: _progressPhotos,
       ...safeUser
     } = user.toObject() as User & { password: string };
 
@@ -312,6 +337,7 @@ export class UsersService {
 
     return {
       ...safeUser,
+      currentWeightKg: user.currentWeightKg ?? null,
       coachQuota: await this.buildCoachQuota(user),
       trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
       coachTrainingProgram: this.enrichCoachTrainingProgram(

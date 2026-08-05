@@ -10,11 +10,11 @@ import {
   Put,
   Query,
   StreamableFile,
-  UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -158,42 +158,46 @@ export class UsersController {
   @Roles(Role.Athlete)
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'front', maxCount: 1 },
+        { name: 'back', maxCount: 1 },
+      ],
+      { limits: { fileSize: 5 * 1024 * 1024 } },
+    ),
   )
   @ApiOperation({
-    summary: 'Upload a progress photo for the current month',
+    summary: 'Upload progress photos for the current month',
     description:
-      'Athlete only. Multipart: `file` (image) + `side` (`front` | `back`). Saves to Cloudinary and upserts user.progressPhotos for the current UTC YYYY-MM. Replacing the same side overwrites the Cloudinary asset (fixed publicId).',
+      'Athlete only. Multipart: `weightKg` (required) + at least one of `front` / `back` image files (jpeg/png/webp). Upserts the current UTC YYYY-MM month, sets that month’s weight, and refreshes `currentWeightKg` from the newest month with a weight. Replacing a side overwrites the Cloudinary asset (fixed publicId).',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['file', 'side'],
+      required: ['weightKg'],
       properties: {
-        file: { type: 'string', format: 'binary' },
-        side: {
-          type: 'string',
-          enum: ['front', 'back'],
-          example: 'front',
-        },
+        weightKg: { type: 'number', example: 72.5 },
+        front: { type: 'string', format: 'binary' },
+        back: { type: 'string', format: 'binary' },
       },
     },
   })
   @ApiCreatedResponse({ type: UploadProgressPhotoResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({ description: 'Requires athlete role' })
-  @ApiBadRequestResponse({ description: 'Missing/invalid file or side' })
+  @ApiBadRequestResponse({
+    description: 'Missing weight, missing both photos, or invalid image type',
+  })
   @ApiNotFoundResponse({ description: 'User not found' })
   uploadProgressPhoto(
     @CurrentUser() user: AuthenticatedUser,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
     @Body(new JoiValidationPipe(uploadProgressPhotoSchema))
     dto: UploadProgressPhotoDto,
   ): Promise<UploadProgressPhotoResponseDto> {
-    return this.usersService.uploadProgressPhoto(user.userId, file, dto);
+    return this.usersService.uploadProgressPhoto(user.userId, files, dto);
   }
 
   @Delete('me/progress-photos')

@@ -169,6 +169,14 @@ export class MeResponseDto {
   @ApiProperty({ type: [MeCoachTrainingProgramDto] })
   coachTrainingProgram: MeCoachTrainingProgramDto[];
 
+  @ApiPropertyOptional({
+    example: 72.5,
+    nullable: true,
+    description:
+      'Latest weight from progress photos (newest month with weightKg)',
+  })
+  currentWeightKg: number | null;
+
   @ApiPropertyOptional({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;
 

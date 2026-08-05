@@ -8,6 +8,13 @@ export class ProgressPhotoMonthDto {
   @ApiProperty({ example: '2026-08' })
   yearMonth: string;
 
+  @ApiPropertyOptional({
+    example: 72.5,
+    nullable: true,
+    description: 'Weight in kg for this month, if recorded',
+  })
+  weightKg: number | null;
+
   @ApiPropertyOptional({ type: ProgressPhotoPublicDto, nullable: true })
   front: ProgressPhotoPublicDto | null;
 
@@ -24,6 +31,14 @@ export class ProgressPhotoYearDto {
 }
 
 export class ProgressPhotosResponseDto {
+  @ApiPropertyOptional({
+    example: 72.5,
+    nullable: true,
+    description:
+      'Latest weight from progress months (newest yearMonth with weightKg)',
+  })
+  currentWeightKg: number | null;
+
   @ApiProperty({ type: [ProgressPhotoYearDto] })
   years: ProgressPhotoYearDto[];
 }

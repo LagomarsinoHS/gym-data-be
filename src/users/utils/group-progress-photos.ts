@@ -1,6 +1,7 @@
 import type { ProgressPhotoMonth } from '../schemas/user.schema';
 import type { ProgressPhotosResponseDto } from '../dto/progress-photos-response.dto';
 import type { ProgressPhotoPublicDto } from '../dto/upload-progress-photo-response.dto';
+import { recomputeCurrentWeightKg } from './progress-photo-weight';
 
 function toPublicPhoto(
   photo: ProgressPhotoMonth['front'],
@@ -38,6 +39,7 @@ export function groupProgressPhotos(
     yearBucket.months.push({
       month: monthNum,
       yearMonth: entry.yearMonth,
+      weightKg: entry.weightKg ?? null,
       front: toPublicPhoto(entry.front),
       back: toPublicPhoto(entry.back),
     });
@@ -50,5 +52,8 @@ export function groupProgressPhotos(
     }))
     .sort((a, b) => b.year - a.year);
 
-  return { years };
+  return {
+    currentWeightKg: recomputeCurrentWeightKg(progressPhotos ?? []),
+    years,
+  };
 }

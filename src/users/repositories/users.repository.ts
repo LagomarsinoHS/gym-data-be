@@ -14,6 +14,7 @@ import {
   GrantableSubscriptionPlan,
   SubscriptionPlan,
 } from '../types/subscription-plan.enum';
+import { recomputeCurrentWeightKg } from '../utils/progress-photo-weight';
 
 /** Active users: soft-delete field must be absent (never stored as null). */
 const NOT_DELETED = { deletedAt: { $exists: false } } as const;
@@ -225,8 +226,12 @@ export class UsersRepository {
     userId: string,
     progressPhotos: ProgressPhotoMonth[],
   ): Promise<void> {
+    const currentWeightKg = recomputeCurrentWeightKg(progressPhotos);
     await this.userModel
-      .updateOne({ id: userId, ...NOT_DELETED }, { $set: { progressPhotos } })
+      .updateOne(
+        { id: userId, ...NOT_DELETED },
+        { $set: { progressPhotos, currentWeightKg } },
+      )
       .exec();
   }
 

@@ -214,17 +214,18 @@ Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `e
 |---|---|
 | Auth | JWT + **athlete** |
 | Body | `multipart/form-data` |
-| Respuesta | `201` — `{ yearMonth, front, back }` (`front`/`back` exponen `url` + `uploadedAt`; sin `publicId`) |
-| Errores | `403` si el role no es athlete; `400` file/side inválidos |
+| Respuesta | `201` — `{ yearMonth, weightKg, front, back }` (`front`/`back` = `{ url, uploadedAt }` o `null`) |
+| Errores | `403` si el role no es athlete; `400` sin peso, sin fotos, o imagen inválida |
 
 **Campos**
 
 | Campo | | Notas |
 |---|---|---|
-| `file` | Obligatorio | imagen jpeg/png/webp, máx 5MB |
-| `side` | Obligatorio | `front` \| `back` |
+| `weightKg` | Obligatorio | número 20–400 (kg); se guarda en el mes UTC actual y actualiza `currentWeightKg` |
+| `front` | Condicional | imagen jpeg/png/webp, máx 5MB |
+| `back` | Condicional | imagen jpeg/png/webp, máx 5MB |
 
-Sube a Cloudinary (`gym-app/progress/{userId}/{YYYY}/{mon}/{side}`, mon = `jan`…`dec`), upsert en `user.progressPhotos` del mes UTC actual. Re-subir el mismo `side` sobrescribe vía `publicId` fijo (`front`/`back`) + overwrite (sin delete aparte).
+Hace falta **al menos uno** de `front` / `back` (pueden ir los dos). Upsert del mes UTC actual en `user.progressPhotos`; setea `weightKg` del mes; recalcula `User.currentWeightKg` (peso del `yearMonth` más reciente con peso). Re-subir el mismo lado sobrescribe vía `publicId` fijo (`front`/`back`) + overwrite.
 
 ---
 
@@ -260,7 +261,7 @@ Sube a Cloudinary (`gym-app/progress/{userId}/{YYYY}/{mon}/{side}`, mon = `jan`�
 |---|---|
 | Auth | JWT |
 | Query | `year` opcional (ej. `2026`) |
-| Respuesta | `200` — `{ years: [{ year, months: [{ month, yearMonth, front, back }] }] }` (años/meses más nuevos primero; `front`/`back` = `{ url, uploadedAt }` o `null`) |
+| Respuesta | `200` — `{ currentWeightKg, years: [{ year, months: [{ month, yearMonth, weightKg, front, back }] }] }` (años/meses más nuevos primero; `front`/`back` = `{ url, uploadedAt }` o `null`) |
 | Authz | `userId === jwt.sub` **o** coach con `athlete.coachId === jwt.sub` |
 | Errores | `403` si no autorizado; `404` si el user no existe |
 
