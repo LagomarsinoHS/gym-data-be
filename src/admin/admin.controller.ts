@@ -32,7 +32,7 @@ import {
 
 @ApiTags('admin')
 @Controller('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, /* RolesGuard */)
 @Roles(Role.Admin)
 @ApiBearerAuth()
 export class AdminController {

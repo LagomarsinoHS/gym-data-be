@@ -235,6 +235,17 @@ export class UsersRepository {
       .exec();
   }
 
+  async softDeleteById(userId: string): Promise<boolean> {
+    const result = await this.userModel
+      .updateOne(
+        { id: userId, ...NOT_DELETED },
+        { $set: { deletedAt: new Date() } },
+      )
+      .exec();
+
+    return result.matchedCount > 0;
+  }
+
   private buildAthletesByCoachFilter(
     coachId: string,
     search?: string,

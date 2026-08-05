@@ -86,5 +86,5 @@ Response del GET:
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
 - [ ] **Mi perfil** — `PATCH` (o similar) para actualizar nombre / datos editables del user
 - [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
-- [ ] **Configuración → darse de baja** — endpoint que setee `deletedAt` (soft-delete); cablear cuando exista la vista de Configuración en el FE
+- [x] **Configuración → darse de baja** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); cablear cuando exista la vista de Configuración en el FE
 - [ ] (Opc.) `cancelReason` en Invite cuando se cancela por cuota

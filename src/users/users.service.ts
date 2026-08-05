@@ -26,6 +26,7 @@ import { CreateUserData } from './types/create-user-data.type';
 import {
   MeCoachTrainingProgramDto,
   MePendingCoachInviteDto,
+  MePendingCoachSummaryDto,
   MeResponseDto,
   MeTrainingProgramItemDto,
   PendingCoachInviteResponseDto,
@@ -100,6 +101,27 @@ export class UsersService {
     return this.usersRepository.create(data);
   }
 
+  /**
+   * Soft-delete by email after verifying it belongs to the JWT user.
+   * Only sets `deletedAt`; leaves coachId and related data intact.
+   */
+  async softDeleteAccount(
+    requesterUserId: string,
+    email: string,
+  ): Promise<OkResponseDto> {
+    const user = await this.usersRepository.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException(`User with email ${email} not found`);
+    }
+
+    if (user.id !== requesterUserId) {
+      throw new ForbiddenException('You can only delete your own account');
+    }
+
+    await this.usersRepository.softDeleteById(user.id);
+    return { ok: true };
+  }
+
   async findByIdOrEmail(params: {
     userId?: string;
     email?: string;
@@ -145,6 +167,7 @@ export class UsersService {
 
     return {
       ...safeUser,
+      coach: await this.resolveAssignedCoach(user.coachId),
       currentWeightKg: user.currentWeightKg ?? null,
       coachQuota: await this.buildCoachQuota(user),
       trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
@@ -741,6 +764,18 @@ export class UsersService {
         firstName: coach.firstName,
         lastName: coach.lastName,
       },
+    };
+  }
+
+  private async resolveAssignedCoach(
+    coachId: string | null | undefined,
+  ): Promise<MePendingCoachSummaryDto | null> {
+    if (!coachId) return null;
+    const coach = await this.usersRepository.findById(coachId);
+    if (!coach) return null;
+    return {
+      firstName: coach.firstName,
+      lastName: coach.lastName,
     };
   }
 

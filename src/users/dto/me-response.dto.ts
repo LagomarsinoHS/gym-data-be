@@ -150,6 +150,14 @@ export class MeResponseDto {
   @ApiPropertyOptional({ example: null, nullable: true })
   coachId: string | null;
 
+  @ApiPropertyOptional({
+    type: MePendingCoachSummaryDto,
+    nullable: true,
+    description:
+      'Assigned coach first/last name when coachId is set; otherwise null',
+  })
+  coach: MePendingCoachSummaryDto | null;
+
   @ApiProperty({ example: true })
   active: boolean;
 

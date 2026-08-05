@@ -90,6 +90,10 @@ import {
   deleteProgressPhotoSchema,
 } from './dto/delete-progress-photo.dto';
 import {
+  DeleteAccountDto,
+  deleteAccountSchema,
+} from './dto/delete-account.dto';
+import {
   GetProgressPhotosQueryDto,
   getProgressPhotosQuerySchema,
 } from './dto/get-progress-photos-query.dto';
@@ -128,98 +132,6 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PendingCoachInviteResponseDto> {
     return this.usersService.getPendingCoachInvite(user.userId);
-  }
-
-  @Post('me/pending-coach-invite/respond')
-  @Roles(Role.Athlete)
-  @ApiOperation({
-    summary: 'Accept or reject a pending coach invitation',
-    description:
-      'Looks up the pending Invite for the authenticated athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
-  })
-  @ApiBody({ type: RespondCoachInviteDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({
-    description:
-      'Requires athlete role, or the inviting coach has reached their athlete limit',
-  })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  @ApiConflictResponse({ description: 'No pending coach invitation' })
-  respondToCoachInvite(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(respondCoachInviteSchema))
-    dto: RespondCoachInviteDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.respondToCoachInvite(user.userId, dto.action);
-  }
-
-  @Post('me/progress-photos')
-  @Roles(Role.Athlete)
-  @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'front', maxCount: 1 },
-        { name: 'back', maxCount: 1 },
-      ],
-      { limits: { fileSize: 5 * 1024 * 1024 } },
-    ),
-  )
-  @ApiOperation({
-    summary: 'Upload progress photos for the current month',
-    description:
-      'Athlete only. Multipart: `weightKg` (required) + at least one of `front` / `back` image files (jpeg/png/webp). Upserts the current UTC YYYY-MM month, sets that month’s weight, and refreshes `currentWeightKg` from the newest month with a weight. Replacing a side overwrites the Cloudinary asset (fixed publicId).',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['weightKg'],
-      properties: {
-        weightKg: { type: 'number', example: 72.5 },
-        front: { type: 'string', format: 'binary' },
-        back: { type: 'string', format: 'binary' },
-      },
-    },
-  })
-  @ApiCreatedResponse({ type: UploadProgressPhotoResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({ description: 'Requires athlete role' })
-  @ApiBadRequestResponse({
-    description: 'Missing weight, missing both photos, or invalid image type',
-  })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  uploadProgressPhoto(
-    @CurrentUser() user: AuthenticatedUser,
-    @UploadedFiles()
-    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
-    @Body(new JoiValidationPipe(uploadProgressPhotoSchema))
-    dto: UploadProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    return this.usersService.uploadProgressPhoto(user.userId, files, dto);
-  }
-
-  @Delete('me/progress-photos')
-  @Roles(Role.Athlete)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Delete a progress photo or a whole month',
-    description:
-      'Athlete only. Body: `yearMonth` (YYYY-MM) required. Optional `side` (`front` | `back`): if omitted, deletes front + back and the Cloudinary month folder; if set, deletes only that side (and the folder when both sides become empty).',
-  })
-  @ApiBody({ type: DeleteProgressPhotoDto })
-  @ApiOkResponse({ type: UploadProgressPhotoResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({ description: 'Requires athlete role' })
-  @ApiBadRequestResponse({ description: 'Invalid yearMonth or side' })
-  @ApiNotFoundResponse({ description: 'User, month, or side photo not found' })
-  deleteProgressPhoto(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(deleteProgressPhotoSchema))
-    dto: DeleteProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    return this.usersService.deleteProgressPhoto(user.userId, dto);
   }
 
   @Get('coach/athletes')
@@ -310,6 +222,76 @@ export class UsersController {
   }
 
   // --- POST ---
+
+  @Post('me/pending-coach-invite/respond')
+  @Roles(Role.Athlete)
+  @ApiOperation({
+    summary: 'Accept or reject a pending coach invitation',
+    description:
+      'Looks up the pending Invite for the authenticated athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
+  })
+  @ApiBody({ type: RespondCoachInviteDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires athlete role, or the inviting coach has reached their athlete limit',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiConflictResponse({ description: 'No pending coach invitation' })
+  respondToCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(respondCoachInviteSchema))
+    dto: RespondCoachInviteDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.respondToCoachInvite(user.userId, dto.action);
+  }
+
+  @Post('me/progress-photos')
+  @Roles(Role.Athlete)
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'front', maxCount: 1 },
+        { name: 'back', maxCount: 1 },
+      ],
+      { limits: { fileSize: 5 * 1024 * 1024 } },
+    ),
+  )
+  @ApiOperation({
+    summary: 'Upload progress photos for the current month',
+    description:
+      'Athlete only. Multipart: `weightKg` (required) + at least one of `front` / `back` image files (jpeg/png/webp). Upserts the current UTC YYYY-MM month, sets that month’s weight, and refreshes `currentWeightKg` from the newest month with a weight. Replacing a side overwrites the Cloudinary asset (fixed publicId).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['weightKg'],
+      properties: {
+        weightKg: { type: 'number', example: 72.5 },
+        front: { type: 'string', format: 'binary' },
+        back: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: UploadProgressPhotoResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiBadRequestResponse({
+    description: 'Missing weight, missing both photos, or invalid image type',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  uploadProgressPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFiles()
+    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
+    @Body(new JoiValidationPipe(uploadProgressPhotoSchema))
+    dto: UploadProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    return this.usersService.uploadProgressPhoto(user.userId, files, dto);
+  }
 
   @Post('coach/training-program/export')
   @Roles(Role.Coach)
@@ -469,5 +451,51 @@ export class UsersController {
       exerciseId,
       dto,
     );
+  }
+
+  // --- DELETE ---
+
+  @Delete('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Soft-delete the authenticated account',
+    description:
+      'Looks up the user by email, verifies `user.id` matches the JWT `sub`, and sets `deletedAt`. Does not clear coachId or other relations.',
+  })
+  @ApiBody({ type: DeleteAccountDto })
+  @ApiOkResponse({ type: OkResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description: 'Email does not belong to the authenticated user',
+  })
+  @ApiNotFoundResponse({ description: 'User not found for that email' })
+  softDeleteAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(deleteAccountSchema))
+    dto: DeleteAccountDto,
+  ): Promise<OkResponseDto> {
+    return this.usersService.softDeleteAccount(user.userId, dto.email);
+  }
+
+  @Delete('me/progress-photos')
+  @Roles(Role.Athlete)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a progress photo or a whole month',
+    description:
+      'Athlete only. Body: `yearMonth` (YYYY-MM) required. Optional `side` (`front` | `back`): if omitted, deletes front + back and the Cloudinary month folder; if set, deletes only that side (and the folder when both sides become empty).',
+  })
+  @ApiBody({ type: DeleteProgressPhotoDto })
+  @ApiOkResponse({ type: UploadProgressPhotoResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiBadRequestResponse({ description: 'Invalid yearMonth or side' })
+  @ApiNotFoundResponse({ description: 'User, month, or side photo not found' })
+  deleteProgressPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(deleteProgressPhotoSchema))
+    dto: DeleteProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    return this.usersService.deleteProgressPhoto(user.userId, dto);
   }
 }

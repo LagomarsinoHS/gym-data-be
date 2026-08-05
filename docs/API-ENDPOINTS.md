@@ -168,7 +168,7 @@ Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 |---|---|
 | Auth | JWT |
 | Body | — |
-| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
+| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
 
 Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
 
@@ -226,6 +226,29 @@ Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `e
 | `back` | Condicional | imagen jpeg/png/webp, máx 5MB |
 
 Hace falta **al menos uno** de `front` / `back` (pueden ir los dos). Upsert del mes UTC actual en `user.progressPhotos`; setea `weightKg` del mes; recalcula `User.currentWeightKg` (peso del `yearMonth` más reciente con peso). Re-subir el mismo lado sobrescribe vía `publicId` fijo (`front`/`back`) + overwrite.
+
+---
+
+### `DELETE /users/me`
+
+| | |
+|---|---|
+| Auth | JWT |
+| Body | JSON |
+| Respuesta | `200` — `{ ok: true }` |
+| Errores | `404` si el email no existe (o ya está dado de baja); `403` si el email no pertenece al usuario del JWT |
+
+Soft-delete: solo setea `deletedAt`. No limpia `coachId` ni relaciones. El usuario deja de aparecer en listados (filtro `deletedAt` ausente) y no puede volver a loguearse con ese email.
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `email` | Obligatorio | debe coincidir con el usuario autenticado |
+
+```json
+{ "email": "user@example.com" }
+```
 
 ---
 
