@@ -43,16 +43,17 @@ currentWeightKg: number | null; // = weightKg del yearMonth más reciente con pe
 - **Regla de envío:** `POST` multipart exige `weightKg` **y** ≥ 1 foto (`front` y/o `back`). Setea el peso del mes UTC actual y recalcula `currentWeightKg`.
 
 Checklist:
-- [x] Módulo `storage` (Cloudinary): upload / list folder / get / delete
-- [x] Admin test: `POST /admin/storage/upload` (multipart `file` + `folder?`)
+- [x] Módulo `storage` (Cloudinary): `uploadImage` / `deleteImage` / `deleteFolder` (usado solo desde progress-photos)
 - [x] Schema: `progressPhotos` en `User` (default `[]`)
 - [x] Schema: `weightKg` por mes + `currentWeightKg` en `User` (recompute al mutar)
 - [x] Atleta: `POST /users/me/progress-photos` — multipart `weightKg` + `front`? + `back`? (≥1 foto); Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}`; upsert mes UTC; setea `weightKg` + `currentWeightKg`
-- [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo + recompute peso
+- [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo + recompute peso (**API lista; FE aún no expone UI de borrado**)
 - [x] **GET único** `GET /users/:userId/progress-photos` — `{ currentWeightKg, years: [...] }`; authz self ó coach asignado; query opcional `?year=2026`
 - [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
 - [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / DELETE / GET)
 - [x] `currentWeightKg` también en `MeResponseDto` (`/me`, coach athletes)
+
+> **Storage en uso:** `uploadImage`, `deleteImage`, `deleteFolder` vía progress-photos en `UsersService`. No hay endpoint admin de upload ni list/get de Cloudinary.
 
 Response del GET:
 

@@ -1,8 +1,8 @@
 # Gym Data API
 
-Backend NestJS para el catálogo de ejercicios, sesión de usuarios (athlete / coach / admin), planes de entrenamiento e invites coach↔athlete.
+Backend NestJS para el catálogo de ejercicios, sesión de usuarios (athlete / coach / admin), planes de entrenamiento, invites coach↔athlete y **fotos de progreso** (Cloudinary).
 
-Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes) vive en el repo del frontend; este API no sirve media.
+Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive en el repo del frontend; este API no sirve media del catálogo. Las fotos de Avances sí van a Cloudinary.
 
 ## Stack
 
@@ -48,6 +48,9 @@ npm run start:dev
 | `JWT_SECRET` | Secreto JWT (≥ 32 chars) | `openssl rand -base64 32` |
 | `JWT_EXPIRES_IN` | Expiración del token | `7d` |
 | `CORS_ORIGINS` | Orígenes permitidos (coma) | `http://127.0.0.1:5500,https://tu-app.vercel.app` |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud | … |
+| `CLOUDINARY_API_KEY` | Cloudinary API key | … |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret | … |
 
 > No subas el `.env`. Está en `.gitignore`.
 
@@ -58,6 +61,9 @@ MONGODB_DATABASE=gym
 JWT_SECRET=replace-with-openssl-rand-base64-32-output
 JWT_EXPIRES_IN=7d
 CORS_ORIGINS=http://127.0.0.1:5500,http://localhost:5500
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
 ```
 
 ## Scripts
@@ -76,14 +82,15 @@ npm run test:e2e     # e2e
 | Módulo | Responsabilidad |
 |---|---|
 | `auth` | Register / login, JWT, `RolesGuard` |
-| `users` | Perfil, training program, invites, athletes, export |
+| `users` | Perfil, training program, invites, athletes, export, **progress photos** |
 | `exercises` | Catálogo, labels, random, recommend |
-| `admin` | Grant / revoke de subscription |
+| `storage` | Cloudinary: `uploadImage`, `deleteImage`, `deleteFolder` |
+| `admin` | Grant / revoke subscription |
 | `excel` · `zip` | Export de planes coach |
 | `database` | Conexión Mongo |
 | `common` | Pipes Joi, hashing, error codes HTTP |
 
-Flujo típico: `Controller → Service → Repository → MongoDB`.
+Flujo típico: `Controller → Service → Repository → MongoDB` (fotos: Service → StorageService → Cloudinary; metadata en User).
 
 Roles: `athlete` | `coach` | `admin`. Subscription: `free` | `premium` | `growth` | `pro` (cuotas de alumnos por plan en coaches).
 
@@ -98,7 +105,8 @@ src/
   database/
   excel/ · zip/
   exercises/
-  users/          # User + Invite schemas, quotas
+  storage/        # Cloudinary
+  users/          # User + Invite + progress photos
   app.module.ts
   main.ts         # CORS, Swagger, Morgan
 docs/
@@ -114,7 +122,7 @@ docs/
 | [`docs/API-ENDPOINTS.md`](docs/API-ENDPOINTS.md) | Catálogo de endpoints, shapes, error codes |
 | [`docs/TODO.md`](docs/TODO.md) | Hechos / pendientes del back |
 
-Las imágenes/GIFs del catálogo se resuelven en el frontend (`public/images`, `public/videos`) a partir de rutas relativas del documento exercise.
+Las imágenes/GIFs del catálogo se resuelven en el frontend (`public/images`, `public/videos`) a partir de rutas relativas del documento exercise. Las fotos de Avances se guardan en Cloudinary; el GET devolve `url` desde Mongo.
 
 ## CORS
 

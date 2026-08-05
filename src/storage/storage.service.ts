@@ -24,38 +24,8 @@ export type UploadImageResult = {
   bytes: number;
 };
 
-export type StorageImage = {
-  publicId: string;
-  folder: string | null;
-  format: string;
-  url: string;
-  secureUrl: string;
-  width: number;
-  height: number;
-  bytes: number;
-  createdAt: string;
-};
-
 type DestroyResult = {
   result: string;
-};
-
-type ResourceResponse = {
-  public_id: string;
-  folder?: string;
-  format: string;
-  url: string;
-  secure_url: string;
-  width: number;
-  height: number;
-  bytes: number;
-  created_at: string;
-};
-
-type SearchResponse = {
-  resources: ResourceResponse[];
-  total_count: number;
-  next_cursor?: string;
 };
 
 @Injectable()
@@ -75,7 +45,7 @@ export class StorageService {
     });
   }
 
-  /** 1. Upload — cloudinary.uploader.upload_stream(...) */
+  /** Upload — cloudinary.uploader.upload_stream(...) */
   async uploadImage(input: UploadImageInput): Promise<UploadImageResult> {
     const result = await this.uploadBuffer(input);
 
@@ -90,56 +60,7 @@ export class StorageService {
     };
   }
 
-  /** 2. List folder — cloudinary.search.expression('folder:X').execute() */
-  async listFolder(
-    folder: string,
-    options?: { maxResults?: number; nextCursor?: string },
-  ): Promise<{
-    images: StorageImage[];
-    totalCount: number;
-    nextCursor?: string;
-  }> {
-    const maxResults = options?.maxResults ?? 50;
-    let search = cloudinary.search
-      .expression(`folder:${folder}`)
-      .sort_by('created_at', 'desc')
-      .max_results(maxResults);
-
-    if (options?.nextCursor) {
-      search = search.next_cursor(options.nextCursor);
-    }
-
-    const result = (await search.execute()) as SearchResponse;
-
-    return {
-      images: result.resources.map((resource) => this.toStorageImage(resource)),
-      totalCount: result.total_count,
-      nextCursor: result.next_cursor,
-    };
-  }
-
-  /** 3. Get one — cloudinary.api.resource(publicId) */
-  async getImage(publicId: string): Promise<StorageImage> {
-    try {
-      const resource = (await cloudinary.api.resource(publicId, {
-        resource_type: 'image',
-      })) as ResourceResponse;
-
-      return this.toStorageImage(resource);
-    } catch (error: unknown) {
-      const httpCode =
-        error && typeof error === 'object' && 'http_code' in error
-          ? Number((error as { http_code: number }).http_code)
-          : undefined;
-
-      if (httpCode === 404) {
-        throw new NotFoundException(`Image not found: ${publicId}`);
-      }
-      throw error;
-    }
-  }
-
-  /** 4. Delete one — cloudinary.uploader.destroy(publicId) */
+  /** Delete one — cloudinary.uploader.destroy(publicId) */
   async deleteImage(
     publicId: string,
     options?: { ignoreNotFound?: boolean },
@@ -175,20 +96,6 @@ export class StorageService {
         error instanceof Error ? error.message : 'Unknown folder delete error';
       this.logger.warn(`Cloudinary delete_folder(${folder}): ${message}`);
     }
-  }
-
-  private toStorageImage(resource: ResourceResponse): StorageImage {
-    return {
-      publicId: resource.public_id,
-      folder: resource.folder ?? null,
-      format: resource.format,
-      url: resource.url,
-      secureUrl: resource.secure_url,
-      width: resource.width,
-      height: resource.height,
-      bytes: resource.bytes,
-      createdAt: resource.created_at,
-    };
   }
 
   private uploadBuffer(input: UploadImageInput): Promise<UploadApiResponse> {

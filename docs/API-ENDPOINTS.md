@@ -660,5 +660,5 @@ Growth (coach) ejemplo:
 | Auth | 2 | público |
 | Exercises | 5 | público |
 | Users | 16 | JWT |
-| Admin | 3 | JWT + admin |
+| Admin | 2 | JWT + admin (grant, revoke) |
 | **Total** | **26** | |

@@ -67,6 +67,12 @@ export type CoachTrainingProgramExportFile = {
   filename: string;
 };
 
+/** Subset of Multer file fields used by progress-photo uploads. */
+type ProgressPhotoUploadFile = {
+  buffer: Buffer;
+  mimetype: string;
+};
+
 const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
@@ -84,233 +90,35 @@ export class UsersService {
     private readonly storageService: StorageService,
   ) {}
 
+  // USERS
+
   findByEmail(email: string): Promise<UserDocument | null> {
     return this.usersRepository.findByEmail(email);
   }
 
-  async uploadProgressPhoto(
-    athleteId: string,
-    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
-    dto: UploadProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    const frontFile = files?.front?.[0];
-    const backFile = files?.back?.[0];
-
-    if (!frontFile && !backFile) {
-      throw new BadRequestException(
-        'At least one image is required: front and/or back',
-      );
-    }
-
-    this.assertProgressPhotoFile(frontFile);
-    this.assertProgressPhotoFile(backFile);
-
-    const user = await this.findByIdOrFail(athleteId);
-    const yearMonth = currentYearMonth();
-    const folder = progressPhotoFolder(athleteId, yearMonth);
-    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
-
-    let month = progressPhotos.find((entry) => entry.yearMonth === yearMonth);
-    if (!month) {
-      month = { yearMonth, weightKg: null, front: null, back: null };
-      progressPhotos.push(month);
-    }
-
-    if (frontFile) {
-      const uploaded = await this.storageService.uploadImage({
-        buffer: frontFile.buffer,
-        folder,
-        publicId: 'front',
-        overwrite: true,
-      });
-      month.front = {
-        url: uploaded.secureUrl,
-        publicId: uploaded.publicId,
-        uploadedAt: new Date(),
-      };
-    }
-
-    if (backFile) {
-      const uploaded = await this.storageService.uploadImage({
-        buffer: backFile.buffer,
-        folder,
-        publicId: 'back',
-        overwrite: true,
-      });
-      month.back = {
-        url: uploaded.secureUrl,
-        publicId: uploaded.publicId,
-        uploadedAt: new Date(),
-      };
-    }
-
-    month.weightKg = dto.weightKg;
-
-    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
-
-    return {
-      yearMonth,
-      weightKg: month.weightKg,
-      front: month.front
-        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
-        : null,
-      back: month.back
-        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
-        : null,
-    };
+  create(data: CreateUserData): Promise<Omit<User, 'password'>> {
+    return this.usersRepository.create(data);
   }
 
-  private assertProgressPhotoFile(file?: Express.Multer.File): void {
-    if (!file) return;
-    if (!file.buffer?.length) {
-      throw new BadRequestException('Image file is required');
-    }
-    if (!ALLOWED_PROGRESS_PHOTO_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException(
-        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
-      );
-    }
-  }
-
-  async deleteProgressPhoto(
-    athleteId: string,
-    dto: DeleteProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    const user = await this.findByIdOrFail(athleteId);
-    const { yearMonth, side } = dto;
-
-    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
-
-    const monthIndex = progressPhotos.findIndex(
-      (entry) => entry.yearMonth === yearMonth,
-    );
-    if (monthIndex < 0) {
-      throw new NotFoundException(`No progress photos for month ${yearMonth}`);
+  async findByIdOrEmail(params: {
+    userId?: string;
+    email?: string;
+  }): Promise<UserDocument> {
+    if (params.userId) {
+      return this.findByIdOrFail(params.userId);
     }
 
-    const month = progressPhotos[monthIndex];
-
-    if (side) {
-      const existing = month[side];
-      if (!existing) {
+    if (params.email) {
+      const user = await this.usersRepository.findByEmail(params.email);
+      if (!user) {
         throw new NotFoundException(
-          `No ${side} progress photo for month ${yearMonth}`,
+          `User with email ${params.email} not found`,
         );
       }
-
-      await this.storageService.deleteImage(existing.publicId, {
-        ignoreNotFound: true,
-      });
-      month[side] = null;
-
-      if (!month.front && !month.back) {
-        month.weightKg = null;
-        progressPhotos.splice(monthIndex, 1);
-        await this.storageService.deleteFolder(
-          progressPhotoFolder(athleteId, yearMonth),
-        );
-      }
-    } else {
-      await this.storageService.deleteFolder(
-        progressPhotoFolder(athleteId, yearMonth),
-      );
-      progressPhotos.splice(monthIndex, 1);
-      month.front = null;
-      month.back = null;
-      month.weightKg = null;
+      return user;
     }
 
-    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
-
-    return {
-      yearMonth,
-      weightKg: month.weightKg ?? null,
-      front: month.front
-        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
-        : null,
-      back: month.back
-        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
-        : null,
-    };
-  }
-
-  async getProgressPhotos(
-    requester: { userId: string; role: Role },
-    targetUserId: string,
-    year?: number,
-  ): Promise<ProgressPhotosResponseDto> {
-    const target = await this.findByIdOrFail(targetUserId);
-
-    const isSelf = requester.userId === targetUserId;
-    const isAssignedCoach =
-      requester.role === Role.Coach && target.coachId === requester.userId;
-
-    if (!isSelf && !isAssignedCoach) {
-      throw new ForbiddenException(
-        'You can only view your own progress photos or those of your athletes',
-      );
-    }
-
-    return groupProgressPhotos(target.progressPhotos ?? [], year);
-  }
-
-  async getCoachAthletes(
-    coachId: string,
-    page: number,
-    limit: number,
-    search?: string,
-  ): Promise<{ data: MeResponseDto[]; total: number }> {
-    const skip = (page - 1) * limit;
-    const [athletes, total] = await Promise.all([
-      this.usersRepository.findAthletesByCoachId(coachId, skip, limit, search),
-      this.usersRepository.countAthletesByCoachId(coachId, search),
-    ]);
-
-    const data = await Promise.all(
-      athletes.map((athlete) => this.getEnrichedUserById(athlete.id)),
-    );
-
-    return { data, total };
-  }
-
-  async getCoachInvites(
-    coachId: string,
-    page: number,
-    limit: number,
-    status?: InviteStatus,
-  ): Promise<{ data: CoachInviteListItemDto[]; total: number }> {
-    const skip = (page - 1) * limit;
-    const { invites, total } = await this.invitesRepository.findByCoachId(
-      coachId,
-      skip,
-      limit,
-      status,
-    );
-
-    const athletes = await this.usersRepository.findByIds(
-      invites.map((invite) => invite.athleteId),
-    );
-    const athleteById = new Map(athletes.map((a) => [a.id, a]));
-
-    const data = invites.map((invite) => {
-      const athlete = athleteById.get(invite.athleteId);
-      return {
-        id: invite.id,
-        athleteId: invite.athleteId,
-        email: invite.email,
-        status: invite.status,
-        invitedAt: invite.invitedAt,
-        respondedAt: invite.respondedAt ?? null,
-        athlete: athlete
-          ? {
-              firstName: athlete.firstName,
-              lastName: athlete.lastName,
-            }
-          : null,
-      };
-    });
-
-    return { data, total };
+    throw new NotFoundException('User not found');
   }
 
   async getEnrichedUserById(id: string): Promise<MeResponseDto> {
@@ -406,6 +214,128 @@ export class UsersService {
     });
 
     return { ok: true };
+  }
+
+  async respondToCoachInvite(
+    userId: string,
+    action: CoachInviteResponseAction,
+  ): Promise<MeResponseDto> {
+    await this.findByIdOrFail(userId);
+
+    const pendingInvite =
+      await this.invitesRepository.findPendingByAthleteId(userId);
+
+    if (!pendingInvite) {
+      throwApiConflict(
+        ApiErrorCode.NoPendingCoachInvite,
+        'No pending coach invitation',
+      );
+    }
+
+    const accept = action === CoachInviteResponseAction.Accept;
+
+    if (accept) {
+      const coach = await this.syncSubscriptionIfExpired(
+        await this.findByIdOrFail(pendingInvite.coachId),
+      );
+
+      try {
+        await this.checkCoachAthleteQuota(coach, {
+          asInvitee: true,
+        });
+      } catch (error) {
+        // Coach is full: this invite and every other pending for that coach are dead.
+        await this.invitesRepository.cancelPendingByCoachId(
+          pendingInvite.coachId,
+        );
+        throw error;
+      }
+    }
+
+    const status = accept ? InviteStatus.Accepted : InviteStatus.Rejected;
+
+    await this.invitesRepository.updatePendingByAthleteId(userId, status);
+    await this.usersRepository.applyCoachInviteResponse(
+      userId,
+      accept,
+      pendingInvite.coachId,
+    );
+
+    if (accept) {
+      const athleteCount = await this.usersRepository.countAthletesByCoachId(
+        pendingInvite.coachId,
+      );
+      const coach = await this.findByIdOrFail(pendingInvite.coachId);
+      const limit = getCoachAthleteLimit(coach.subscription.plan);
+
+      if (athleteCount >= limit) {
+        await this.invitesRepository.cancelPendingByCoachId(
+          pendingInvite.coachId,
+          userId,
+        );
+      }
+    }
+
+    return this.getEnrichedUserById(userId);
+  }
+
+  async getCoachAthletes(
+    coachId: string,
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{ data: MeResponseDto[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [athletes, total] = await Promise.all([
+      this.usersRepository.findAthletesByCoachId(coachId, skip, limit, search),
+      this.usersRepository.countAthletesByCoachId(coachId, search),
+    ]);
+
+    const data = await Promise.all(
+      athletes.map((athlete) => this.getEnrichedUserById(athlete.id)),
+    );
+
+    return { data, total };
+  }
+
+  async getCoachInvites(
+    coachId: string,
+    page: number,
+    limit: number,
+    status?: InviteStatus,
+  ): Promise<{ data: CoachInviteListItemDto[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const { invites, total } = await this.invitesRepository.findByCoachId(
+      coachId,
+      skip,
+      limit,
+      status,
+    );
+
+    const athletes = await this.usersRepository.findByIds(
+      invites.map((invite) => invite.athleteId),
+    );
+    const athleteById = new Map(athletes.map((a) => [a.id, a]));
+
+    const data = invites.map((invite) => {
+      const athlete = athleteById.get(invite.athleteId);
+      return {
+        id: invite.id,
+        athleteId: invite.athleteId,
+        email: invite.email,
+        status: invite.status,
+        invitedAt: invite.invitedAt,
+        respondedAt: invite.respondedAt ?? null,
+        athlete: athlete
+          ? {
+              firstName: athlete.firstName,
+              lastName: athlete.lastName,
+            }
+          : null,
+      };
+    });
+
+    return { data, total };
   }
 
   async setCoachTrainingProgram(
@@ -504,69 +434,6 @@ export class UsersService {
         };
   }
 
-  async respondToCoachInvite(
-    userId: string,
-    action: CoachInviteResponseAction,
-  ): Promise<MeResponseDto> {
-    await this.findByIdOrFail(userId);
-
-    const pendingInvite =
-      await this.invitesRepository.findPendingByAthleteId(userId);
-
-    if (!pendingInvite) {
-      throwApiConflict(
-        ApiErrorCode.NoPendingCoachInvite,
-        'No pending coach invitation',
-      );
-    }
-
-    const accept = action === CoachInviteResponseAction.Accept;
-
-    if (accept) {
-      const coach = await this.syncSubscriptionIfExpired(
-        await this.findByIdOrFail(pendingInvite.coachId),
-      );
-
-      try {
-        await this.checkCoachAthleteQuota(coach, {
-          asInvitee: true,
-        });
-      } catch (error) {
-        // Coach is full: this invite and every other pending for that coach are dead.
-        await this.invitesRepository.cancelPendingByCoachId(
-          pendingInvite.coachId,
-        );
-        throw error;
-      }
-    }
-
-    const status = accept ? InviteStatus.Accepted : InviteStatus.Rejected;
-
-    await this.invitesRepository.updatePendingByAthleteId(userId, status);
-    await this.usersRepository.applyCoachInviteResponse(
-      userId,
-      accept,
-      pendingInvite.coachId,
-    );
-
-    if (accept) {
-      const athleteCount = await this.usersRepository.countAthletesByCoachId(
-        pendingInvite.coachId,
-      );
-      const coach = await this.findByIdOrFail(pendingInvite.coachId);
-      const limit = getCoachAthleteLimit(coach.subscription.plan);
-
-      if (athleteCount >= limit) {
-        await this.invitesRepository.cancelPendingByCoachId(
-          pendingInvite.coachId,
-          userId,
-        );
-      }
-    }
-
-    return this.getEnrichedUserById(userId);
-  }
-
   async addToTrainingProgram(
     userId: string,
     exerciseIds: string[],
@@ -618,10 +485,6 @@ export class UsersService {
     return this.getEnrichedUserById(userId);
   }
 
-  create(data: CreateUserData): Promise<Omit<User, 'password'>> {
-    return this.usersRepository.create(data);
-  }
-
   async grantSubscription(
     userId: string,
     plan: GrantableSubscriptionPlan,
@@ -643,26 +506,166 @@ export class UsersService {
     return this.getEnrichedUserById(userId);
   }
 
-  async findByIdOrEmail(params: {
-    userId?: string;
-    email?: string;
-  }): Promise<UserDocument> {
-    if (params.userId) {
-      return this.findByIdOrFail(params.userId);
+  // STORAGE
+
+  async uploadProgressPhoto(
+    athleteId: string,
+    files: {
+      front?: ProgressPhotoUploadFile[];
+      back?: ProgressPhotoUploadFile[];
+    },
+    dto: UploadProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    const frontFile = files?.front?.[0];
+    const backFile = files?.back?.[0];
+
+    if (!frontFile && !backFile) {
+      throw new BadRequestException(
+        'At least one image is required: front and/or back',
+      );
     }
 
-    if (params.email) {
-      const user = await this.usersRepository.findByEmail(params.email);
-      if (!user) {
+    this.assertProgressPhotoFile(frontFile);
+    this.assertProgressPhotoFile(backFile);
+
+    const user = await this.findByIdOrFail(athleteId);
+    const yearMonth = currentYearMonth();
+    const folder = progressPhotoFolder(athleteId, yearMonth);
+    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
+
+    let month = progressPhotos.find((entry) => entry.yearMonth === yearMonth);
+    if (!month) {
+      month = { yearMonth, weightKg: null, front: null, back: null };
+      progressPhotos.push(month);
+    }
+
+    if (frontFile) {
+      const uploaded = await this.storageService.uploadImage({
+        buffer: frontFile.buffer,
+        folder,
+        publicId: 'front',
+        overwrite: true,
+      });
+      month.front = {
+        url: uploaded.secureUrl,
+        publicId: uploaded.publicId,
+        uploadedAt: new Date(),
+      };
+    }
+
+    if (backFile) {
+      const uploaded = await this.storageService.uploadImage({
+        buffer: backFile.buffer,
+        folder,
+        publicId: 'back',
+        overwrite: true,
+      });
+      month.back = {
+        url: uploaded.secureUrl,
+        publicId: uploaded.publicId,
+        uploadedAt: new Date(),
+      };
+    }
+
+    month.weightKg = dto.weightKg;
+
+    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
+
+    return {
+      yearMonth,
+      weightKg: month.weightKg,
+      front: month.front
+        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
+        : null,
+      back: month.back
+        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
+        : null,
+    };
+  }
+
+  async deleteProgressPhoto(
+    athleteId: string,
+    dto: DeleteProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    const user = await this.findByIdOrFail(athleteId);
+    const { yearMonth, side } = dto;
+
+    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
+
+    const monthIndex = progressPhotos.findIndex(
+      (entry) => entry.yearMonth === yearMonth,
+    );
+    if (monthIndex < 0) {
+      throw new NotFoundException(`No progress photos for month ${yearMonth}`);
+    }
+
+    const month = progressPhotos[monthIndex];
+
+    if (side) {
+      const existing = month[side];
+      if (!existing) {
         throw new NotFoundException(
-          `User with email ${params.email} not found`,
+          `No ${side} progress photo for month ${yearMonth}`,
         );
       }
-      return user;
+
+      await this.storageService.deleteImage(existing.publicId, {
+        ignoreNotFound: true,
+      });
+      month[side] = null;
+
+      if (!month.front && !month.back) {
+        month.weightKg = null;
+        progressPhotos.splice(monthIndex, 1);
+        await this.storageService.deleteFolder(
+          progressPhotoFolder(athleteId, yearMonth),
+        );
+      }
+    } else {
+      await this.storageService.deleteFolder(
+        progressPhotoFolder(athleteId, yearMonth),
+      );
+      progressPhotos.splice(monthIndex, 1);
+      month.front = null;
+      month.back = null;
+      month.weightKg = null;
     }
 
-    throw new NotFoundException('User not found');
+    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
+
+    return {
+      yearMonth,
+      weightKg: month.weightKg ?? null,
+      front: month.front
+        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
+        : null,
+      back: month.back
+        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
+        : null,
+    };
   }
+
+  async getProgressPhotos(
+    requester: { userId: string; role: Role },
+    targetUserId: string,
+    year?: number,
+  ): Promise<ProgressPhotosResponseDto> {
+    const target = await this.findByIdOrFail(targetUserId);
+
+    const isSelf = requester.userId === targetUserId;
+    const isAssignedCoach =
+      requester.role === Role.Coach && target.coachId === requester.userId;
+
+    if (!isSelf && !isAssignedCoach) {
+      throw new ForbiddenException(
+        'You can only view your own progress photos or those of your athletes',
+      );
+    }
+
+    return groupProgressPhotos(target.progressPhotos ?? [], year);
+  }
+
+  // HELPERS
 
   private async findByIdOrFail(id: string): Promise<UserDocument> {
     const user = await this.usersRepository.findById(id);
@@ -670,6 +673,18 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
     return user;
+  }
+
+  private assertProgressPhotoFile(file?: ProgressPhotoUploadFile): void {
+    if (!file) return;
+    if (!file.buffer?.length) {
+      throw new BadRequestException('Image file is required');
+    }
+    if (!ALLOWED_PROGRESS_PHOTO_MIME_TYPES.has(file.mimetype)) {
+      throw new BadRequestException(
+        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
+      );
+    }
   }
 
   private enrichTrainingProgram(

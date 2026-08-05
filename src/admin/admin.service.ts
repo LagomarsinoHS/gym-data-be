@@ -1,8 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import {
-  StorageService,
-  type UploadImageResult,
-} from '../storage/storage.service';
+import { Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { MeResponseDto } from '../users/dto/me-response.dto';
 import { GrantPremiumDto } from './dto/grant-premium.dto';
@@ -10,12 +6,6 @@ import { RevokePremiumDto } from './dto/revoke-premium.dto';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_DURATION_DAYS = 30;
-const ALLOWED_IMAGE_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-]);
 
 /** YYYY-MM-DD → end of that calendar day in UTC. */
 function endOfUtcDay(ymd: string): Date {
@@ -25,30 +15,7 @@ function endOfUtcDay(ymd: string): Date {
 
 @Injectable()
 export class AdminService {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly storageService: StorageService,
-  ) {}
-
-  async uploadImage(
-    file: Express.Multer.File,
-    folder?: string,
-  ): Promise<UploadImageResult> {
-    if (!file?.buffer?.length) {
-      throw new BadRequestException('Image file is required');
-    }
-
-    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException(
-        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp, gif`,
-      );
-    }
-
-    return this.storageService.uploadImage({
-      buffer: file.buffer,
-      folder: folder?.trim() || 'gym-app',
-    });
-  }
+  constructor(private readonly usersService: UsersService) {}
 
   async grantPremium(dto: GrantPremiumDto): Promise<MeResponseDto> {
     const user = await this.usersService.findByIdOrEmail({
