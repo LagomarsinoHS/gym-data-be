@@ -39,10 +39,16 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedUser } from '../auth/types/jwt-payload.type';
 import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
+import {
+  AnalyzeProgressPhotosDto,
+  AnalyzeProgressPhotosResponseDto,
+  analyzeProgressPhotosSchema,
+} from './dto/analyze-progress-photos.dto';
 import {
   AddTrainingProgramDto,
   addTrainingProgramSchema,
@@ -219,6 +225,37 @@ export class UsersController {
     query: GetProgressPhotosQueryDto,
   ): Promise<ProgressPhotosResponseDto> {
     return this.usersService.getProgressPhotos(user, userId, query.year);
+  }
+
+  @Post(':userId/progress-photos/analyze')
+  @Roles(Role.Coach)
+  @UseGuards(PaidSubscriptionGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'AI-analyze athlete progress photos (2 months × front/back)',
+    description:
+      'Coach-only. Requires paid subscription. Loads the 4 Cloudinary URLs from DB for the given months and asks OpenAI for a visual progress analysis. Does not accept raw image uploads.',
+  })
+  @ApiParam({
+    name: 'userId',
+    example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45',
+  })
+  @ApiBody({ type: AnalyzeProgressPhotosDto })
+  @ApiOkResponse({ type: AnalyzeProgressPhotosResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
+  @ApiForbiddenResponse({
+    description: 'Requires coach role and paid subscription',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid months or month entries not found',
+  })
+  @ApiNotFoundResponse({ description: 'Athlete not found' })
+  analyzeProgressPhotos(
+    @Param('userId') userId: string,
+    @Body(new JoiValidationPipe(analyzeProgressPhotosSchema))
+    dto: AnalyzeProgressPhotosDto,
+  ): Promise<AnalyzeProgressPhotosResponseDto> {
+    return this.usersService.analyzeProgressPhotos(userId, dto);
   }
 
   @Get(':id')

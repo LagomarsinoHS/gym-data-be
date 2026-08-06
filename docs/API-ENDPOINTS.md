@@ -132,8 +132,10 @@ Ejemplo: `GET /exercises?page=1&limit=20&category=chest&search=press`
 
 | | |
 |---|---|
-| Auth | No |
-| Respuesta | `200` — `{ zone, equipment[], exercises[] }` |
+| Auth | JWT + **subscription ≠ free** (activa) |
+| Respuesta | `200` — `{ zone, equipment[], exercises[] }` (con `role` por slot) |
+| Errores | `401` sin JWT; `403` `PAID_SUBSCRIPTION_REQUIRED` |
+| Notas | **Legacy** — presets de zona + sample en Mongo; sin OpenAI |
 
 **Query**
 
@@ -143,6 +145,48 @@ Ejemplo: `GET /exercises?page=1&limit=20&category=chest&search=press`
 | `equipment` | Obligatorio | uno o más (comma-separated o repetido) |
 
 Ejemplo: `GET /exercises/recommend?zone=chest&equipment=barbell,dumbbell`
+
+---
+
+### `GET /exercises/recommend2`
+
+| | |
+|---|---|
+| Auth | JWT + **subscription ≠ free** (activa) |
+| Respuesta | `200` — `{ zone, equipment[], note, exercises[4] }` |
+| Errores | `401` sin JWT; `403` `PAID_SUBSCRIPTION_REQUIRED`; `400` zona/equipment inválidos o &lt; 4 candidatos; `502`/`503` OpenAI |
+
+Flujo: filtra catálogo por `category=zone` + `equipment ∈ lista` → manda candidatos slim (`id`, `name` en `locale`, `equipment`, `target`) a OpenAI → elige **exactamente 4** ids + `note` en el idioma pedido → resuelve ejercicios del catálogo (nombres siguen bilingües `{ en, es }`).
+
+**Query**
+
+| Param | | Notas |
+|---|---|---|
+| `zone` | Obligatorio | mismas zonas que recommend |
+| `equipment` | Obligatorio | **1 o 2** valores (comma-separated o repetido) |
+| `locale` | Opcional | `es` \| `en` (default `es`) — idioma de la `note` |
+
+Ejemplo: `GET /exercises/recommend2?zone=chest&equipment=barbell,dumbbell&locale=es`
+
+```json
+{
+  "zone": "chest",
+  "equipment": ["barbell", "dumbbell"],
+  "locale": "es",
+  "note": "Prioricé un empuje compuesto…",
+  "exercises": [
+    {
+      "id": "0025",
+      "name": { "en": "…", "es": "…" },
+      "image": "images/…",
+      "gif_url": "videos/…",
+      "category": "chest",
+      "equipment": "barbell",
+      "target": "pectorals"
+    }
+  ]
+}
+```
 
 ---
 
@@ -346,6 +390,44 @@ Soft-delete: solo setea `deletedAt`. No limpia `coachId` ni relaciones. El usuar
 ```http
 GET /users/{userId}/progress-photos
 GET /users/{userId}/progress-photos?year=2026
+```
+
+---
+
+### `POST /users/:userId/progress-photos/analyze`
+
+| | |
+|---|---|
+| Auth | JWT + **coach** + **subscription ≠ free** (activa) |
+| Body | `{ yearMonths: [YYYY-MM, YYYY-MM], locale? }` |
+| Respuesta | `200` — `{ analysis }` texto libre de OpenAI |
+| Authz | JWT + **coach** + **subscription ≠ free** |
+| Errores | `401` sin JWT; `403` role / `PAID_SUBSCRIPTION_REQUIRED`; `400` meses inválidos; `404` atleta; `502`/`503` OpenAI |
+
+El BE pasa a OpenAI las fotos `older` (antes) y `newer` (actuales) con las URLs de Cloudinary disponibles.
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `yearMonths` | Obligatorio | exactamente **2** meses distintos `YYYY-MM` (se ordenan older/newer) |
+| `locale` | Opcional | `es` \| `en` (default `es`) |
+
+```http
+POST /users/{userId}/progress-photos/analyze
+```
+
+```json
+{
+  "yearMonths": ["2026-08", "2026-09"],
+  "locale": "es"
+}
+```
+
+```json
+{
+  "analysis": "Se observa mejor definición en torso y espalda… En frente… En espalda…"
+}
 ```
 
 ---
@@ -686,6 +768,10 @@ Códigos estables para i18n en el client (`code` + `message` EN de debug):
 | `ATHLETE_NOT_FOUND_BY_EMAIL` | 404 | Invite a email que no es athlete |
 | `ATHLETE_HAS_PENDING_INVITE` | 409 | Athlete ya tiene una invite pending |
 | `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
+| `CURRENT_PASSWORD_INCORRECT` | 400 | `PATCH /users/me` con `newPassword` y contraseña actual incorrecta |
+| `OPENAI_NOT_CONFIGURED` | 503 | Llamada a `OpenAiService` sin `OPENAI_API_KEY` |
+| `OPENAI_REQUEST_FAILED` | 502 | Error / respuesta vacía o JSON inválido de OpenAI |
+| `PAID_SUBSCRIPTION_REQUIRED` | 403 | `recommend` / `recommend2` / `progress-photos/analyze` con plan free o pago vencido |
 
 Helpers: `src/common/errors/api-http.exception.ts`.
 
@@ -736,7 +822,7 @@ Growth (coach) ejemplo:
 | Módulo | Cantidad | Auth |
 |---|---|---|
 | Auth | 2 | público |
-| Exercises | 5 | público |
+| Exercises | 6 | público |
 | Users | 16 | JWT |
 | Admin | 2 | JWT + admin (grant, revoke) |
-| **Total** | **26** | |
+| **Total** | **27** | |

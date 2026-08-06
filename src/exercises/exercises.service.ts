@@ -3,9 +3,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { OpenAiService } from '../openai/openai.service';
 import { getZonePreset } from './constants/zone-presets';
 import { ExerciseLabelsResponseDto } from './dto/exercise-labels-response.dto';
 import { GetExercisesQueryDto } from './dto/get-exercises-query.dto';
+import {
+  Recommend2ExerciseDto,
+  Recommend2QueryDto,
+  Recommend2ResponseDto,
+} from './dto/recommend2-exercises.dto';
 import {
   RecommendExercisesQueryDto,
   RecommendExercisesResponseDto,
@@ -16,7 +22,10 @@ import { ExerciseDocument } from './schemas/exercise.schema';
 
 @Injectable()
 export class ExercisesService {
-  constructor(private readonly exercisesRepository: ExercisesRepository) {}
+  constructor(
+    private readonly exercisesRepository: ExercisesRepository,
+    private readonly openAiService: OpenAiService,
+  ) {}
 
   async getExercises({
     page,
@@ -102,6 +111,74 @@ export class ExercisesService {
     return {
       zone: preset.zone,
       equipment: query.equipment,
+      exercises,
+    };
+  }
+
+  /**
+   * AI recommend: zone + 1–2 equipment → slim candidates → OpenAI picks 4 + note.
+   */
+  async recommend2(query: Recommend2QueryDto): Promise<Recommend2ResponseDto> {
+    const exerciseList = await this.exercisesRepository.findForRecommend(
+      query.zone,
+      query.equipment,
+    );
+
+    if (exerciseList.length < 4) {
+      throw new BadRequestException(
+        `Not enough exercises for zone="${query.zone}" and equipment=[${query.equipment.join(', ')}] (need at least 4, found ${exerciseList.length})`,
+      );
+    }
+
+    const locale = query.locale;
+    const byId = new Map(
+      exerciseList.map((exercise) => [exercise.id, exercise]),
+    );
+    const openAiCandidates = exerciseList.map((row) => ({
+      id: row.id,
+      name: locale === 'en' ? row.name?.en : row.name?.es,
+      equipment: row.equipment,
+      target: row.target,
+    }));
+
+    openAiCandidates.length = 2;
+
+    const { ids, note } = await this.openAiService.recommendWorkout({
+      zone: query.zone,
+      equipment: query.equipment,
+      locale,
+      candidates: openAiCandidates,
+    });
+
+    const exercises: Recommend2ExerciseDto[] = ids.flatMap((id) => {
+      const exercise = byId.get(id);
+      if (!exercise) {
+        return [];
+      }
+      return [
+        {
+          id: exercise.id,
+          name: exercise.name,
+          image: exercise.image,
+          gif_url: exercise.gif_url,
+          category: exercise.category,
+          equipment: exercise.equipment,
+          target: exercise.target,
+        },
+      ];
+    });
+
+    if (exercises.length !== 4) {
+      throw new BadRequestException(
+        'Could not resolve the 4 recommended exercises from the catalog',
+      );
+    }
+
+    return {
+      zone: query.zone,
+      equipment: query.equipment,
+      locale,
+      note,
       exercises,
     };
   }

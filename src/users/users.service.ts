@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
   HttpStatus,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ApiErrorCode } from '../common/errors/api-error-code';
@@ -50,6 +52,10 @@ import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-resp
 import { UploadProgressPhotoDto } from './dto/upload-progress-photo.dto';
 import { DeleteProgressPhotoDto } from './dto/delete-progress-photo.dto';
 import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
+import {
+  AnalyzeProgressPhotosDto,
+  AnalyzeProgressPhotosResponseDto,
+} from './dto/analyze-progress-photos.dto';
 import { currentYearMonth } from './utils/year-month';
 import { groupProgressPhotos } from './utils/group-progress-photos';
 import { cloneProgressPhotoMonths } from './utils/progress-photo-weight';
@@ -62,6 +68,7 @@ import { ExcelService } from '../excel/excel.service';
 import type { AthleteTrainingProgramExport } from '../excel/types/athlete-training-program-export.type';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
+import { OpenAiService } from '../openai/openai.service';
 import { ZipService } from '../zip/zip.service';
 import { InviteStatus } from './types/invite-status.enum';
 import { Role } from './types/role.enum';
@@ -99,11 +106,13 @@ export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly invitesRepository: InvitesRepository,
+    @Inject(forwardRef(() => ExercisesService))
     private readonly exercisesService: ExercisesService,
     private readonly excelService: ExcelService,
     private readonly zipService: ZipService,
     private readonly storageService: StorageService,
     private readonly hashingService: HashingService,
+    private readonly openAiService: OpenAiService,
   ) {}
 
   // USERS
@@ -135,6 +144,21 @@ export class UsersService {
 
     await this.usersRepository.softDeleteById(user.id);
     return { ok: true };
+  }
+
+  /**
+   * Ensures the user has an active paid plan (not free / not expired).
+   */
+  async requirePaidSubscription(userId: string): Promise<void> {
+    const user = await this.syncSubscriptionIfExpired(
+      await this.findByIdOrFail(userId),
+    );
+    if (!isPaidSubscriptionPlan(user.subscription.plan)) {
+      throwApiForbidden(
+        ApiErrorCode.PaidSubscriptionRequired,
+        'A paid subscription is required',
+      );
+    }
   }
 
   /**
@@ -581,7 +605,7 @@ export class UsersService {
     return this.getEnrichedUserById(userId);
   }
 
-  async revokePremium(userId: string): Promise<MeResponseDto> {
+  async revokeSubscription(userId: string): Promise<MeResponseDto> {
     await this.findByIdOrFail(userId);
     await this.usersRepository.clearSubscriptionToFree(userId);
     return this.getEnrichedUserById(userId);
@@ -600,7 +624,7 @@ export class UsersService {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Image file is required');
     }
-    this.assertProgressPhotoFile(file);
+    this.validateUploadedImageFile(file);
 
     await this.findByIdOrFail(userId);
 
@@ -638,8 +662,8 @@ export class UsersService {
       );
     }
 
-    this.assertProgressPhotoFile(frontFile);
-    this.assertProgressPhotoFile(backFile);
+    this.validateUploadedImageFile(frontFile);
+    this.validateUploadedImageFile(backFile);
 
     const user = await this.findByIdOrFail(athleteId);
     const yearMonth = currentYearMonth();
@@ -778,6 +802,51 @@ export class UsersService {
     return groupProgressPhotos(target.progressPhotos ?? [], year);
   }
 
+  /**
+   * AI analysis of two progress months (front + back Cloudinary URLs).
+   * Coach + paid subscription enforced by guards.
+   */
+  async analyzeProgressPhotos(
+    athleteId: string,
+    dto: AnalyzeProgressPhotosDto,
+  ): Promise<AnalyzeProgressPhotosResponseDto> {
+    const athlete = await this.findByIdOrFail(athleteId);
+
+    const [firstYearMonth, secondYearMonth] = dto.yearMonths;
+    const olderYearMonth =
+      firstYearMonth < secondYearMonth ? firstYearMonth : secondYearMonth;
+    const newerYearMonth =
+      firstYearMonth < secondYearMonth ? secondYearMonth : firstYearMonth;
+
+    const months = athlete.progressPhotos;
+    const older = months.find((m) => m.yearMonth === olderYearMonth) ?? null;
+    const newer = months.find((m) => m.yearMonth === newerYearMonth) ?? null;
+
+    if (!older || !newer) {
+      throw new BadRequestException(
+        'Both months must exist in the athlete progress photos',
+      );
+    }
+
+    const { analysis } = await this.openAiService.analyzeProgressPhotos({
+      locale: dto.locale,
+      older: {
+        yearMonth: older.yearMonth,
+        weightKg: older.weightKg ?? null,
+        frontUrl: older.front?.url,
+        backUrl: older.back?.url,
+      },
+      newer: {
+        yearMonth: newer.yearMonth,
+        weightKg: newer.weightKg ?? null,
+        frontUrl: newer.front?.url,
+        backUrl: newer.back?.url,
+      },
+    });
+
+    return { analysis };
+  }
+
   // HELPERS
 
   private async findByIdOrFail(id: string): Promise<UserDocument> {
@@ -788,7 +857,7 @@ export class UsersService {
     return user;
   }
 
-  private assertProgressPhotoFile(file?: ProgressPhotoUploadFile): void {
+  private validateUploadedImageFile(file?: ProgressPhotoUploadFile): void {
     if (!file) return;
     if (!file.buffer?.length) {
       throw new BadRequestException('Image file is required');

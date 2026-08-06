@@ -38,6 +38,6 @@ export class AdminService {
       email: dto.email,
     });
 
-    return this.usersService.revokePremium(user.id);
+    return this.usersService.revokeSubscription(user.id);
   }
 }

@@ -112,8 +112,32 @@ export class ExercisesRepository {
           gif_url: 1,
           category: 1,
           equipment: 1,
+          target: 1,
         },
       )
+      .exec();
+  }
+
+  /** Candidates for AI recommend (+ fields needed for the HTTP response). */
+  async findForRecommend(
+    category: string,
+    equipment: string[],
+    limit = 80,
+  ): Promise<ExerciseDocument[]> {
+    return this.exerciseModel
+      .find(
+        { category, equipment: { $in: equipment } },
+        {
+          id: 1,
+          name: 1,
+          image: 1,
+          gif_url: 1,
+          category: 1,
+          equipment: 1,
+          target: 1,
+        },
+      )
+      .limit(limit)
       .exec();
   }
 

@@ -33,4 +33,7 @@ export const envValidationSchema = Joi.object({
     'string.empty':
       'Missing required environment variable: CLOUDINARY_API_SECRET',
   }),
+  /** Optional until a feature calls OpenAI (e.g. recommend AI). */
+  OPENAI_API_KEY: Joi.string().allow('').optional(),
+  OPENAI_MODEL: Joi.string().default('gpt-5-mini'),
 });

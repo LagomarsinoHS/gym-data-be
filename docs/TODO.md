@@ -15,6 +15,7 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 - [x] Coach training program replace + export Excel/ZIP
 - [x] Admin: grant / revoke subscription (`plan` requerido en grant: premium | growth | pro)
 - [x] API error codes estables para invites/cuota (`COACH_ATHLETE_QUOTA_FULL`, etc.)
+- [x] Módulo `openai` (`OpenAiService.recommendWorkout` vía Responses API + prompt entrenador); env opcional `OPENAI_API_KEY` + `OPENAI_MODEL`
 
 > FE: menú de cuenta (iniciales/foto + dropdown). **Mi perfil** cableado (lectura, foto, editar, baja). **Configuración** aún deshabilitada en FE.
 > La **baja de cuenta** (soft-delete / `deletedAt`) vive en **Mi perfil** (`DELETE /users/me`), no en Configuración.
@@ -82,7 +83,8 @@ Response del GET:
 ### Resto
 
 - [ ] Migrar más excepciones a `ApiErrorCode` (auth, ownership, export…)
-- [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
+- [x] Recommend IA — `GET /exercises/recommend2` (zone + 1–2 equipment → candidatos slim → OpenAI 4 ejercicios + `note`); `GET /exercises/recommend` queda legado
+- [ ] (Más adelante) Recommend: modo `from_plan` / `discover`
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
 - [x] **Mi perfil** — `PATCH /users/me` (firstName / lastName / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`
 - [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
