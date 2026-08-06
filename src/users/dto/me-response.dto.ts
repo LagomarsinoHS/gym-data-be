@@ -131,6 +131,17 @@ export class PendingCoachInviteResponseDto {
   invite: MePendingCoachInviteDto | null;
 }
 
+export class MeProfilePhotoDto {
+  @ApiProperty({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1/gym-app/profiles/user-id/profilePhoto.jpg',
+  })
+  url: string;
+
+  @ApiProperty({ example: '2026-08-05T18:00:00.000Z' })
+  uploadedAt: Date;
+}
+
 export class MeResponseDto {
   @ApiProperty({ example: '05549aab-26fa-4b13-9528-513cae92be14' })
   id: string;
@@ -170,6 +181,13 @@ export class MeResponseDto {
     description: 'Present for coaches; null for athletes/admins',
   })
   coachQuota: MeCoachQuotaDto | null;
+
+  @ApiPropertyOptional({
+    type: MeProfilePhotoDto,
+    nullable: true,
+    description: 'Profile photo urls only (no publicId)',
+  })
+  profilePhoto: MeProfilePhotoDto | null;
 
   @ApiProperty({ type: [MeTrainingProgramItemDto] })
   trainingProgram: MeTrainingProgramItemDto[];

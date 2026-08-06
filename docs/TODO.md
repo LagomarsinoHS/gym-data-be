@@ -16,8 +16,8 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 - [x] Admin: grant / revoke subscription (`plan` requerido en grant: premium | growth | pro)
 - [x] API error codes estables para invites/cuota (`COACH_ATHLETE_QUOTA_FULL`, etc.)
 
-> FE: menú de cuenta (iniciales + dropdown). **Mi perfil** / **Configuración** quedan deshabilitados hasta cablear vistas + endpoints de abajo.
-> La **baja de cuenta** (soft-delete / `deletedAt`) se hace junto a **Configuración**, no en Mi perfil.
+> FE: menú de cuenta (iniciales/foto + dropdown). **Mi perfil** cableado (lectura, foto, editar, baja). **Configuración** aún deshabilitada en FE.
+> La **baja de cuenta** (soft-delete / `deletedAt`) vive en **Mi perfil** (`DELETE /users/me`), no en Configuración.
 
 ## Pendiente — back
 
@@ -84,7 +84,7 @@ Response del GET:
 - [ ] Migrar más excepciones a `ApiErrorCode` (auth, ownership, export…)
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`, o IA sobre candidatos
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
-- [ ] **Mi perfil** — `PATCH` (o similar) para actualizar nombre / datos editables del user
+- [x] **Mi perfil** — `PATCH /users/me` (firstName / lastName / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`
 - [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
-- [x] **Configuración → darse de baja** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); cablear cuando exista la vista de Configuración en el FE
+- [x] **Baja de cuenta** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); UI en Mi perfil (FE)
 - [ ] (Opc.) `cancelReason` en Invite cuando se cancela por cuota

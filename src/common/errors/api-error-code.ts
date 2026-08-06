@@ -4,4 +4,5 @@ export enum ApiErrorCode {
   AthleteNotFoundByEmail = 'ATHLETE_NOT_FOUND_BY_EMAIL',
   AthleteHasPendingInvite = 'ATHLETE_HAS_PENDING_INVITE',
   NoPendingCoachInvite = 'NO_PENDING_COACH_INVITE',
+  CurrentPasswordIncorrect = 'CURRENT_PASSWORD_INCORRECT',
 }

@@ -168,9 +168,64 @@ Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 |---|---|
 | Auth | JWT |
 | Body | — |
-| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
+| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription` y `profilePhoto: null \| { url, uploadedAt }`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
 
 Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
+
+---
+
+### `PATCH /users/me`
+
+| | |
+|---|---|
+| Auth | JWT |
+| Body | JSON (parcial) |
+| Respuesta | `200` — `MeResponseDto` actualizado |
+| Errores | `400` sin campos / payload inválido / contraseña actual incorrecta; `404` user |
+
+Al menos uno de: `firstName`, `lastName`, `newPassword`.
+
+| Campo | | Notas |
+|---|---|---|
+| `firstName` | Opcional | string trim, min 1 |
+| `lastName` | Opcional | string trim, min 1 |
+| `currentPassword` | Condicional | obligatorio si envías `newPassword` |
+| `newPassword` | Opcional | min 4 |
+| `confirmNewPassword` | Condicional | obligatorio si `newPassword`; debe coincidir |
+
+```json
+{
+  "firstName": "Humberto",
+  "lastName": "Lagomarsino"
+}
+```
+
+```json
+{
+  "currentPassword": "oldPass",
+  "newPassword": "newPass",
+  "confirmNewPassword": "newPass"
+}
+```
+
+---
+
+### `POST /users/me/profile-photo`
+
+| | |
+|---|---|
+| Auth | JWT |
+| Body | `multipart/form-data` |
+| Respuesta | `200` — `MeResponseDto` actualizado |
+| Errores | `400` sin archivo o imagen inválida; `404` user |
+
+**Campos**
+
+| Campo | | Notas |
+|---|---|---|
+| `profilePhoto` | Obligatorio | imagen jpeg/png/webp, máx 5MB |
+
+Cloudinary: `gym-app/profiles/{userId}/profilePhoto` (overwrite al re-subir). En `/me` se expone solo `{ url, uploadedAt }` (sin `publicId`).
 
 ---
 

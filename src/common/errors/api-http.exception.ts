@@ -41,3 +41,11 @@ export function throwApiConflict(
 ): never {
   return throwApiError(HttpStatus.CONFLICT, code, message, details);
 }
+
+export function throwApiBadRequest(
+  code: ApiErrorCode,
+  message: string,
+  details?: Record<string, unknown>,
+): never {
+  return throwApiError(HttpStatus.BAD_REQUEST, code, message, details);
+}

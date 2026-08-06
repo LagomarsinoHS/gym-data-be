@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   CoachTrainingProgram,
+  ProgressPhoto,
   ProgressPhotoMonth,
   TrainingProgramExercise,
   User,
@@ -232,6 +233,29 @@ export class UsersRepository {
         { id: userId, ...NOT_DELETED },
         { $set: { progressPhotos, currentWeightKg } },
       )
+      .exec();
+  }
+
+  async setProfilePhoto(
+    userId: string,
+    profilePhoto: ProgressPhoto,
+  ): Promise<void> {
+    await this.userModel
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set: { profilePhoto } })
+      .exec();
+  }
+
+  async updateProfileFields(
+    userId: string,
+    patch: {
+      firstName?: string;
+      lastName?: string;
+      password?: string;
+    },
+  ): Promise<void> {
+    if (Object.keys(patch).length === 0) return;
+    await this.userModel
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set: patch })
       .exec();
   }
 

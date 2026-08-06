@@ -7,16 +7,23 @@ import {
 import { randomUUID } from 'node:crypto';
 import { ApiErrorCode } from '../common/errors/api-error-code';
 import {
+  throwApiBadRequest,
   throwApiConflict,
   throwApiForbidden,
   throwApiNotFound,
 } from '../common/errors/api-http.exception';
 import { StorageService } from '../storage/storage.service';
-import { progressPhotoFolder } from '../storage/constants';
+import {
+  PROFILE_PHOTO_PUBLIC_ID,
+  profilePhotoFolder,
+  progressPhotoFolder,
+} from '../storage/constants';
+import { HashingService } from '../common/hashing/hashing.service';
 import { UsersRepository } from './repositories/users.repository';
 import { InvitesRepository } from './repositories/invites.repository';
 import {
   CoachTrainingProgram,
+  ProgressPhoto,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -27,6 +34,7 @@ import {
   MeCoachTrainingProgramDto,
   MePendingCoachInviteDto,
   MePendingCoachSummaryDto,
+  MeProfilePhotoDto,
   MeResponseDto,
   MeTrainingProgramItemDto,
   PendingCoachInviteResponseDto,
@@ -36,6 +44,7 @@ import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
 import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
 import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
 import { UploadProgressPhotoDto } from './dto/upload-progress-photo.dto';
 import { DeleteProgressPhotoDto } from './dto/delete-progress-photo.dto';
@@ -89,6 +98,7 @@ export class UsersService {
     private readonly excelService: ExcelService,
     private readonly zipService: ZipService,
     private readonly storageService: StorageService,
+    private readonly hashingService: HashingService,
   ) {}
 
   // USERS
@@ -122,6 +132,46 @@ export class UsersService {
     return { ok: true };
   }
 
+  /**
+   * Partial self-update: firstName and/or lastName and/or password.
+   * Password change requires a valid currentPassword.
+   */
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<MeResponseDto> {
+    const user = await this.findByIdOrFail(userId);
+    const patch: {
+      firstName?: string;
+      lastName?: string;
+      password?: string;
+    } = {};
+
+    if (dto.firstName !== undefined) {
+      patch.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined) {
+      patch.lastName = dto.lastName;
+    }
+
+    if (dto.newPassword) {
+      const valid = await this.hashingService.verify(
+        user.password,
+        dto.currentPassword ?? '',
+      );
+      if (!valid) {
+        throwApiBadRequest(
+          ApiErrorCode.CurrentPasswordIncorrect,
+          'Current password is incorrect',
+        );
+      }
+      patch.password = await this.hashingService.hash(dto.newPassword);
+    }
+
+    await this.usersRepository.updateProfileFields(userId, patch);
+    return this.getEnrichedUserById(userId);
+  }
+
   async findByIdOrEmail(params: {
     userId?: string;
     email?: string;
@@ -153,6 +203,7 @@ export class UsersService {
       trainingProgram,
       coachTrainingProgram,
       progressPhotos: _progressPhotos,
+      profilePhoto,
       ...safeUser
     } = user.toObject() as User & { password: string };
 
@@ -167,6 +218,7 @@ export class UsersService {
 
     return {
       ...safeUser,
+      profilePhoto: this.toMeProfilePhoto(profilePhoto),
       coach: await this.resolveAssignedCoach(user.coachId),
       currentWeightKg: user.currentWeightKg ?? null,
       coachQuota: await this.buildCoachQuota(user),
@@ -531,6 +583,38 @@ export class UsersService {
 
   // STORAGE
 
+  /**
+   * Upload / replace profile photo.
+   * Cloudinary: gym-app/profiles/{userId}/profilePhoto (overwrite).
+   */
+  async uploadProfilePhoto(
+    userId: string,
+    file?: ProgressPhotoUploadFile,
+  ): Promise<MeResponseDto> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Image file is required');
+    }
+    this.assertProgressPhotoFile(file);
+
+    await this.findByIdOrFail(userId);
+
+    const uploaded = await this.storageService.uploadImage({
+      buffer: file.buffer,
+      folder: profilePhotoFolder(userId),
+      publicId: PROFILE_PHOTO_PUBLIC_ID,
+      overwrite: true,
+    });
+
+    const profilePhoto: ProgressPhoto = {
+      url: uploaded.secureUrl,
+      publicId: uploaded.publicId,
+      uploadedAt: new Date(),
+    };
+
+    await this.usersRepository.setProfilePhoto(userId, profilePhoto);
+    return this.getEnrichedUserById(userId);
+  }
+
   async uploadProgressPhoto(
     athleteId: string,
     files: {
@@ -708,6 +792,16 @@ export class UsersService {
         `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
       );
     }
+  }
+
+  private toMeProfilePhoto(
+    profilePhoto?: ProgressPhoto | null,
+  ): MeProfilePhotoDto | null {
+    if (!profilePhoto?.url) return null;
+    return {
+      url: profilePhoto.url,
+      uploadedAt: profilePhoto.uploadedAt,
+    };
   }
 
   private enrichTrainingProgram(

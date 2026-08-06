@@ -203,6 +203,15 @@ export class User {
   progressPhotos: ProgressPhotoMonth[];
 
   @ApiPropertyOptional({
+    type: ProgressPhoto,
+    nullable: true,
+    description:
+      'Account profile photo. Cloudinary: gym-app/profiles/{userId}/profilePhoto',
+  })
+  @Prop({ type: ProgressPhoto, default: null })
+  profilePhoto: ProgressPhoto | null;
+
+  @ApiPropertyOptional({
     example: 72.5,
     nullable: true,
     description:

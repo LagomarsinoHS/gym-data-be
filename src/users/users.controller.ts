@@ -6,15 +6,20 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
   Query,
   StreamableFile,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -93,6 +98,10 @@ import {
   DeleteAccountDto,
   deleteAccountSchema,
 } from './dto/delete-account.dto';
+import {
+  UpdateProfileDto,
+  updateProfileSchema,
+} from './dto/update-profile.dto';
 import {
   GetProgressPhotosQueryDto,
   getProgressPhotosQuerySchema,
@@ -247,6 +256,39 @@ export class UsersController {
     return this.usersService.respondToCoachInvite(user.userId, dto.action);
   }
 
+  @Post('me/profile-photo')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('profilePhoto', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload or replace the authenticated user profile photo',
+    description:
+      'Multipart field `profilePhoto` (jpeg/png/webp, max 5MB). Stored in Cloudinary as `gym-app/profiles/{userId}/profilePhoto` with overwrite. Returns updated MeResponseDto (`profilePhoto: { url, uploadedAt }`).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['profilePhoto'],
+      properties: {
+        profilePhoto: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiBadRequestResponse({ description: 'Missing file or invalid image type' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  uploadProfilePhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<MeResponseDto> {
+    return this.usersService.uploadProfilePhoto(user.userId, file);
+  }
+
   @Post('me/progress-photos')
   @Roles(Role.Athlete)
   @HttpCode(HttpStatus.CREATED)
@@ -370,6 +412,31 @@ export class UsersController {
     dto: AddTrainingProgramDto,
   ): Promise<MeResponseDto> {
     return this.usersService.addToTrainingProgram(user.userId, dto.exerciseIds);
+  }
+
+  // --- PATCH ---
+
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update the authenticated user profile',
+    description:
+      'Partial update. Send at least one of `firstName`, `lastName`, or `newPassword`. Password change requires `currentPassword` + matching `confirmNewPassword`.',
+  })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiBadRequestResponse({
+    description:
+      'No fields, invalid password payload, or incorrect current password',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(updateProfileSchema))
+    dto: UpdateProfileDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.updateProfile(user.userId, dto);
   }
 
   // --- PUT ---

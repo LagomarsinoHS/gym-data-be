@@ -4,6 +4,12 @@ export const CLOUDINARY_ROOT_FOLDER = 'gym-app';
 /** Progress photos live under gym-app/progress/{userId}/{year}/{mon}. */
 export const CLOUDINARY_PROGRESS_FOLDER = `${CLOUDINARY_ROOT_FOLDER}/progress`;
 
+/** Profile photos live under gym-app/profiles/{userId}. */
+export const CLOUDINARY_PROFILES_FOLDER = `${CLOUDINARY_ROOT_FOLDER}/profiles`;
+
+/** Fixed asset name for account profile photo. */
+export const PROFILE_PHOTO_PUBLIC_ID = 'profilePhoto';
+
 /** UTC month index 01–12 → 3-letter English folder name. */
 const MONTH_FOLDER_BY_NUMBER: Record<string, string> = {
   '01': 'jan',
@@ -31,4 +37,12 @@ export function progressPhotoFolder(userId: string, yearMonth: string): string {
     throw new Error(`Invalid yearMonth for progress folder: ${yearMonth}`);
   }
   return `${CLOUDINARY_PROGRESS_FOLDER}/${userId}/${year}/${monthFolder}`;
+}
+
+/**
+ * Folder for profile photo: gym-app/profiles/{userId}.
+ * Asset publicId is always `profilePhoto`.
+ */
+export function profilePhotoFolder(userId: string): string {
+  return `${CLOUDINARY_PROFILES_FOLDER}/${userId}`;
 }
