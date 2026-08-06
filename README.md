@@ -1,8 +1,8 @@
 # Gym Data API
 
-Backend NestJS para el catálogo de ejercicios, sesión de usuarios (athlete / coach / admin), planes de entrenamiento, invites coach↔athlete y **fotos de progreso** (Cloudinary).
+Backend NestJS para el catálogo de ejercicios, sesión de usuarios (athlete / coach / admin), planes de entrenamiento, invites coach↔athlete, **fotos de progreso** y **perfil** (foto + editar + baja).
 
-Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive en el repo del frontend; este API no sirve media del catálogo. Las fotos de Avances sí van a Cloudinary.
+Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive en el repo del frontend; este API no sirve media del catálogo. Fotos de Avances y de perfil van a Cloudinary.
 
 ## Stack
 
@@ -12,6 +12,7 @@ Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive
 - Validación: Joi
 - Swagger (`/docs`)
 - ExcelJS / JSZip (export de pautas)
+- Cloudinary (progress photos + profile photo)
 - Morgan (logs HTTP)
 
 ## Requisitos
@@ -19,6 +20,7 @@ Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive
 - Node.js **22.x** (`engines` en `package.json`)
 - npm
 - MongoDB con colecciones de exercises, users e invites
+- Cloudinary (Avances y foto de perfil)
 
 ## Setup
 
@@ -77,12 +79,34 @@ npm run test         # unit tests
 npm run test:e2e     # e2e
 ```
 
+## Capacidades
+
+| Área | Qué cubre |
+|---|---|
+| Auth | Register / login JWT (`sub` + `role`) |
+| Exercises | Listado, labels, random, by id, recommend |
+| Training program | Add / remove / edit (atleta); replace + export (coach) |
+| Invites | Create, respond, pending, history, athletes + cupos por plan |
+| Progress photos | Upload / delete / GET timeline (self o coach); peso mensual |
+| Perfil | `GET/PATCH /users/me`, foto de perfil, soft-delete (`DELETE /users/me`) |
+| Admin | Grant / revoke subscription |
+
+Roles: `athlete` | `coach` | `admin`.  
+Subscription: `free` | `premium` | `growth` | `pro` (cuotas de alumnos por plan en coaches).
+
+Cloudinary:
+
+| Uso | Path |
+|---|---|
+| Progress | `gym-app/progress/{userId}/{YYYY}/{mon}/{side}` |
+| Profile | `gym-app/profiles/{userId}/profilePhoto` |
+
 ## Módulos
 
 | Módulo | Responsabilidad |
 |---|---|
 | `auth` | Register / login, JWT, `RolesGuard` |
-| `users` | Perfil, training program, invites, athletes, export, **progress photos** |
+| `users` | Perfil, training program, invites, athletes, export, progress photos, profile photo, baja |
 | `exercises` | Catálogo, labels, random, recommend |
 | `storage` | Cloudinary: `uploadImage`, `deleteImage`, `deleteFolder` |
 | `admin` | Grant / revoke subscription |
@@ -91,8 +115,6 @@ npm run test:e2e     # e2e
 | `common` | Pipes Joi, hashing, error codes HTTP |
 
 Flujo típico: `Controller → Service → Repository → MongoDB` (fotos: Service → StorageService → Cloudinary; metadata en User).
-
-Roles: `athlete` | `coach` | `admin`. Subscription: `free` | `premium` | `growth` | `pro` (cuotas de alumnos por plan en coaches).
 
 ## Estructura
 
@@ -106,7 +128,7 @@ src/
   excel/ · zip/
   exercises/
   storage/        # Cloudinary
-  users/          # User + Invite + progress photos
+  users/          # User + Invite + progress/profile photos
   app.module.ts
   main.ts         # CORS, Swagger, Morgan
 docs/
@@ -122,7 +144,7 @@ docs/
 | [`docs/API-ENDPOINTS.md`](docs/API-ENDPOINTS.md) | Catálogo de endpoints, shapes, error codes |
 | [`docs/TODO.md`](docs/TODO.md) | Hechos / pendientes del back |
 
-Las imágenes/GIFs del catálogo se resuelven en el frontend (`public/images`, `public/videos`) a partir de rutas relativas del documento exercise. Las fotos de Avances se guardan en Cloudinary; el GET devolve `url` desde Mongo.
+Las imágenes/GIFs del catálogo se resuelven en el frontend (`public/images`, `public/videos`) a partir de rutas relativas del documento exercise. Las fotos de Avances y de perfil se guardan en Cloudinary; el API devuelve `url` desde Mongo (sin `publicId` al cliente).
 
 ## CORS
 
@@ -139,7 +161,7 @@ CORS_ORIGINS=https://tu-app.vercel.app
 ## Deploy
 
 - NestJS “clásico”: Railway, Render, Fly.io, etc.
-- En el host configurá las mismas variables (`MONGODB_*`, `JWT_*`, `CORS_ORIGINS`, `PORT`).
+- En el host configurá las mismas variables (`MONGODB_*`, `JWT_*`, `CORS_ORIGINS`, `CLOUDINARY_*`, `PORT`).
 - El frontend suele ir aparte (p. ej. Vercel).
 
 ## Licencia

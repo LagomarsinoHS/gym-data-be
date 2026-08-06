@@ -3,12 +3,13 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  HttpStatus,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ApiErrorCode } from '../common/errors/api-error-code';
 import {
-  throwApiBadRequest,
   throwApiConflict,
+  throwApiError,
   throwApiForbidden,
   throwApiNotFound,
 } from '../common/errors/api-http.exception';
@@ -89,6 +90,10 @@ const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set([
   'image/webp',
 ]);
 
+/** Typed string until IDE TS service picks up ApiErrorCode.CurrentPasswordIncorrect. */
+const CURRENT_PASSWORD_INCORRECT: ApiErrorCode =
+  'CURRENT_PASSWORD_INCORRECT' as ApiErrorCode;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -160,8 +165,9 @@ export class UsersService {
         dto.currentPassword ?? '',
       );
       if (!valid) {
-        throwApiBadRequest(
-          ApiErrorCode.CurrentPasswordIncorrect,
+        throwApiError(
+          HttpStatus.BAD_REQUEST,
+          CURRENT_PASSWORD_INCORRECT,
           'Current password is incorrect',
         );
       }
