@@ -297,17 +297,18 @@ Cloudinary: `gym-app/profiles/{userId}/profilePhoto` (overwrite al re-subir). En
 | Auth | JWT + **athlete** |
 | Body | `multipart/form-data` |
 | Respuesta | `201` — `{ yearMonth, weightKg, front, back }` (`front`/`back` = `{ url, uploadedAt }` o `null`) |
-| Errores | `403` si el role no es athlete; `400` sin peso, sin fotos, o imagen inválida |
+| Errores | `403` si el role no es athlete; `400` sin peso, sin fotos, imagen inválida, o `yearMonth` inválido/futuro |
 
 **Campos**
 
 | Campo | | Notas |
 |---|---|---|
-| `weightKg` | Obligatorio | número 20–400 (kg); se guarda en el mes UTC actual y actualiza `currentWeightKg` |
+| `weightKg` | Obligatorio | número 20–400 (kg); se guarda en el mes elegido y actualiza `currentWeightKg` |
+| `yearMonth` | Opcional | `YYYY-MM` (UTC). Si se omite → mes UTC actual. No admite meses futuros. |
 | `front` | Condicional | imagen jpeg/png/webp, máx 5MB |
 | `back` | Condicional | imagen jpeg/png/webp, máx 5MB |
 
-Hace falta **al menos uno** de `front` / `back` (pueden ir los dos). Upsert del mes UTC actual en `user.progressPhotos`; setea `weightKg` del mes; recalcula `User.currentWeightKg` (peso del `yearMonth` más reciente con peso). Re-subir el mismo lado sobrescribe vía `publicId` fijo (`front`/`back`) + overwrite.
+Hace falta **al menos uno** de `front` / `back` (pueden ir los dos). Upsert del mes indicado (o el UTC actual si no hay `yearMonth`) en `user.progressPhotos`; setea `weightKg` del mes; recalcula `User.currentWeightKg` (peso del `yearMonth` más reciente con peso). Re-subir el mismo lado sobrescribe vía `publicId` fijo (`front`/`back`) + overwrite.
 
 ---
 

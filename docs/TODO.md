@@ -28,7 +28,7 @@ Modelo en `User` (array `progressPhotos`, mismo estilo que `trainingProgram`):
 
 ```ts
 progressPhotos: {
-  yearMonth: string; // 'YYYY-MM' — único por usuario; el mes lo calcula el BE al subir
+  yearMonth: string; // 'YYYY-MM' — único por usuario; default = mes UTC actual (opcional en el POST)
   weightKg: number | null; // peso del avance de ese mes
   front: { url: string; publicId: string; uploadedAt: Date } | null;
   back:  { url: string; publicId: string; uploadedAt: Date } | null;
@@ -41,13 +41,13 @@ currentWeightKg: number | null; // = weightKg del yearMonth más reciente con pe
 - Máx **2 fotos por mes**: `front` y `back` (reemplazar el mismo side reescribe el slot; overwrite vía publicId fijo).
 - Guardar `url` (`secureUrl`) para render + `publicId` para delete/replace.
 - No usar nombres de mes en BD; el FE traduce `1 → Enero`.
-- **Regla de envío:** `POST` multipart exige `weightKg` **y** ≥ 1 foto (`front` y/o `back`). Setea el peso del mes UTC actual y recalcula `currentWeightKg`.
+- **Regla de envío:** `POST` multipart exige `weightKg` **y** ≥ 1 foto (`front` y/o `back`). `yearMonth` opcional (`YYYY-MM`, no futuro; omitir = mes UTC actual). Setea el peso de ese mes y recalcula `currentWeightKg`.
 
 Checklist:
 - [x] Módulo `storage` (Cloudinary): `uploadImage` / `deleteImage` / `deleteFolder` (usado solo desde progress-photos)
 - [x] Schema: `progressPhotos` en `User` (default `[]`)
 - [x] Schema: `weightKg` por mes + `currentWeightKg` en `User` (recompute al mutar)
-- [x] Atleta: `POST /users/me/progress-photos` — multipart `weightKg` + `front`? + `back`? (≥1 foto); Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}`; upsert mes UTC; setea `weightKg` + `currentWeightKg`
+- [x] Atleta: `POST /users/me/progress-photos` — multipart `weightKg` + `yearMonth?` + `front`? + `back`? (≥1 foto); Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}`; upsert mes (actual o backfill); setea `weightKg` + `currentWeightKg`
 - [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo + recompute peso (**API lista; FE aún no expone UI de borrado**)
 - [x] **GET único** `GET /users/:userId/progress-photos` — `{ currentWeightKg, years: [...] }`; authz self ó coach asignado; query opcional `?year=2026`
 - [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
