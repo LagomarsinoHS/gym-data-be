@@ -12,5 +12,4 @@ export const GRANTABLE_SUBSCRIPTION_PLANS = [
   SubscriptionPlan.Pro,
 ] as const;
 
-export type GrantableSubscriptionPlan =
-  (typeof GRANTABLE_SUBSCRIPTION_PLANS)[number];
+export type GrantableSubscriptionPlan = (typeof GRANTABLE_SUBSCRIPTION_PLANS)[number];

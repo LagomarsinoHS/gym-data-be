@@ -4,12 +4,8 @@ import type { ProgressPhotoMonth } from '../schemas/user.schema';
  * Latest weight across progress months (newest yearMonth first).
  * Source of truth for User.currentWeightKg.
  */
-export function recomputeCurrentWeightKg(
-  progressPhotos: ProgressPhotoMonth[],
-): number | null {
-  const sorted = [...(progressPhotos ?? [])].sort((a, b) =>
-    b.yearMonth.localeCompare(a.yearMonth),
-  );
+export function recomputeCurrentWeightKg(progressPhotos: ProgressPhotoMonth[]): number | null {
+  const sorted = [...(progressPhotos ?? [])].sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
 
   for (const entry of sorted) {
     const weight = entry.weightKg;
@@ -21,9 +17,7 @@ export function recomputeCurrentWeightKg(
   return null;
 }
 
-export function cloneProgressPhotoMonths(
-  progressPhotos: ProgressPhotoMonth[],
-): ProgressPhotoMonth[] {
+export function cloneProgressPhotoMonths(progressPhotos: ProgressPhotoMonth[]): ProgressPhotoMonth[] {
   return (progressPhotos ?? []).map((entry) => ({
     yearMonth: entry.yearMonth,
     weightKg: entry.weightKg ?? null,

@@ -60,9 +60,6 @@ const coachTrainingProgramSchema = Joi.object<CoachTrainingProgramDto>({
   items: Joi.array().items(itemSchema).required(),
 });
 
-export const setCoachTrainingProgramSchema =
-  Joi.object<SetCoachTrainingProgramDto>({
-    coachTrainingProgram: Joi.array()
-      .items(coachTrainingProgramSchema)
-      .required(),
-  });
+export const setCoachTrainingProgramSchema = Joi.object<SetCoachTrainingProgramDto>({
+  coachTrainingProgram: Joi.array().items(coachTrainingProgramSchema).required(),
+});

@@ -34,8 +34,7 @@ export class ProgressPhotosResponseDto {
   @ApiPropertyOptional({
     example: 72.5,
     nullable: true,
-    description:
-      'Latest weight from progress months (newest yearMonth with weightKg)',
+    description: 'Latest weight from progress months (newest yearMonth with weightKg)',
   })
   currentWeightKg: number | null;
 

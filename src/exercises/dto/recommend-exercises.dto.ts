@@ -1,25 +1,33 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import * as Joi from 'joi';
-import { RECOMMEND_ZONES } from '../constants/zone-presets';
 import { ExerciseName } from '../schemas/exercise.schema';
+
+export type RecommendLocale = 'es' | 'en';
+
+export const DEFAULT_RECOMMEND_LOCALE: RecommendLocale = 'es';
 
 export class RecommendExercisesQueryDto {
   @ApiProperty({
-    example: 'back',
-    enum: RECOMMEND_ZONES,
-    description: 'Catalog category / zone preset key',
+    example: 'chest',
+    description: 'Catalog category (same values as GET /exercises/labels → category)',
   })
   zone: string;
 
   @ApiProperty({
     example: 'barbell,dumbbell',
-    description:
-      'Available equipment (comma-separated or repeated query param)',
+    description: '1 or 2 equipment values (comma-separated or repeated)',
   })
   equipment: string[];
+
+  @ApiPropertyOptional({
+    enum: ['es', 'en'],
+    default: DEFAULT_RECOMMEND_LOCALE,
+    description: 'UI language for the AI note (exercise names stay bilingual)',
+  })
+  locale: RecommendLocale;
 }
 
-export class RecommendExerciseSummaryDto {
+export class RecommendExerciseDto {
   @ApiProperty({ example: '1316' })
   id: string;
 
@@ -32,64 +40,82 @@ export class RecommendExerciseSummaryDto {
   @ApiPropertyOptional({ example: 'videos/1316-omN.gif' })
   gif_url?: string;
 
-  @ApiPropertyOptional({ example: 'back' })
+  @ApiPropertyOptional({ example: 'chest' })
   category?: string;
 
   @ApiPropertyOptional({ example: 'barbell' })
   equipment?: string;
-}
 
-export class RecommendedExerciseDto {
-  @ApiProperty({ example: 'vertical_pull' })
-  role: string;
+  @ApiPropertyOptional({ example: 'pectorals' })
+  target?: string;
 
-  @ApiProperty({ type: RecommendExerciseSummaryDto })
-  exercise: RecommendExerciseSummaryDto;
+  @ApiProperty({ example: 3, description: 'Number of sets' })
+  sets: number;
+
+  @ApiProperty({ example: '8-10', description: 'Reps prescription' })
+  reps: string;
+
+  @ApiProperty({ example: 90, description: 'Rest between sets in seconds' })
+  rest: number;
 }
 
 export class RecommendExercisesResponseDto {
-  @ApiProperty({ example: 'back' })
+  @ApiProperty({ example: 'chest' })
   zone: string;
 
-  @ApiProperty({ example: ['barbell'], type: [String] })
+  @ApiProperty({ example: ['barbell', 'dumbbell'], type: [String] })
   equipment: string[];
 
-  @ApiProperty({ type: [RecommendedExerciseDto] })
-  exercises: RecommendedExerciseDto[];
+  @ApiProperty({ enum: ['es', 'en'], example: 'es' })
+  locale: RecommendLocale;
+
+  @ApiProperty({
+    example:
+      'Prioricé un empuje compuesto con barra, variación unilateral con mancuernas y asistencia de deltoides/tríceps para balancear el estímulo.',
+  })
+  note: string;
+
+  @ApiProperty({ type: [RecommendExerciseDto] })
+  exercises: RecommendExerciseDto[];
 }
 
-export const recommendExercisesQuerySchema =
-  Joi.object<RecommendExercisesQueryDto>({
-    zone: Joi.string()
-      .trim()
-      .valid(...RECOMMEND_ZONES)
-      .required(),
-    equipment: Joi.any()
-      .custom((value, helpers) => {
-        const items = parseEquipment(value);
-        if (items.length === 0) {
-          return helpers.error('any.invalid');
-        }
-        return items;
-      })
-      .required()
-      .messages({
-        'any.invalid': 'equipment must include at least one value',
-      }),
-  });
+export const recommendExercisesQuerySchema = Joi.object<RecommendExercisesQueryDto>({
+  zone: Joi.string().trim().min(1).required(),
+  equipment: Joi.any()
+    .custom((value, helpers) => {
+      const items = parseEquipment(value);
+      if (items.length < 1 || items.length > 2) {
+        return helpers.error('any.invalid');
+      }
+      return items;
+    })
+    .required()
+    .messages({
+      'any.invalid': 'equipment must include 1 or 2 values',
+    }),
+  locale: Joi.string().valid('es', 'en').default(DEFAULT_RECOMMEND_LOCALE).optional(),
+});
 
 function parseEquipment(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value
-      .flatMap((item) => String(item).split(','))
-      .map((item) => item.trim())
-      .filter(Boolean);
+    return [
+      ...new Set(
+        value
+          .flatMap((item) => String(item).split(','))
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    ];
   }
   if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
+    return [
+      ...new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      ),
+    ];
   }
   return [];
 }

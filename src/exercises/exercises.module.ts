@@ -1,7 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
-import { OpenAiModule } from '../openai/openai.module';
+import { AiModule } from '../ai/ai.module';
 import { UsersModule } from '../users/users.module';
 import { ExercisesController } from './exercises.controller';
 import { ExercisesRepository } from './repositories/exercises.repository';
@@ -10,10 +10,8 @@ import { Exercise, ExerciseSchema } from './schemas/exercise.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: Exercise.name, schema: ExerciseSchema },
-    ]),
-    OpenAiModule,
+    MongooseModule.forFeature([{ name: Exercise.name, schema: ExerciseSchema }]),
+    AiModule,
     forwardRef(() => UsersModule),
   ],
   controllers: [ExercisesController],

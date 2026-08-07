@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'node:crypto';
 import { HashingService } from '../common/hashing/hashing.service';
@@ -44,10 +40,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isValid = await this.hashingService.verify(
-      user.password,
-      dto.password,
-    );
+    const isValid = await this.hashingService.verify(user.password, dto.password);
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');
     }

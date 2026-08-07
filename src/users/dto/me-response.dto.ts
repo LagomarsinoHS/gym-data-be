@@ -133,8 +133,7 @@ export class PendingCoachInviteResponseDto {
 
 export class MeProfilePhotoDto {
   @ApiProperty({
-    example:
-      'https://res.cloudinary.com/demo/image/upload/v1/gym-app/profiles/user-id/profilePhoto.jpg',
+    example: 'https://res.cloudinary.com/demo/image/upload/v1/gym-app/profiles/user-id/profilePhoto.jpg',
   })
   url: string;
 
@@ -164,8 +163,7 @@ export class MeResponseDto {
   @ApiPropertyOptional({
     type: MePendingCoachSummaryDto,
     nullable: true,
-    description:
-      'Assigned coach first/last name when coachId is set; otherwise null',
+    description: 'Assigned coach first/last name when coachId is set; otherwise null',
   })
   coach: MePendingCoachSummaryDto | null;
 
@@ -198,8 +196,7 @@ export class MeResponseDto {
   @ApiPropertyOptional({
     example: 72.5,
     nullable: true,
-    description:
-      'Latest weight from progress photos (newest month with weightKg)',
+    description: 'Latest weight from progress photos (newest month with weightKg)',
   })
   currentWeightKg: number | null;
 

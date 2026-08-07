@@ -14,12 +14,14 @@ export type RecommendWorkoutInput = {
   candidates: RecommendWorkoutCandidate[];
 };
 
-export type RecommendWorkoutResult = {
-  ids: string[];
-  note: string;
+export type RecommendWorkoutDetailedExercise = {
+  id: string;
+  sets: number;
+  reps: string;
+  rest: number;
 };
 
-export type OpenAiRecommendJson = {
-  ids?: unknown;
-  note?: unknown;
+export type RecommendWorkoutResult = {
+  detailedExercises: RecommendWorkoutDetailedExercise[];
+  note: string;
 };

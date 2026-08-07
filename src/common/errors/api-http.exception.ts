@@ -18,34 +18,18 @@ export function throwApiError(
   throw new HttpException(body, status);
 }
 
-export function throwApiForbidden(
-  code: ApiErrorCode,
-  message: string,
-  details?: Record<string, unknown>,
-): never {
+export function throwApiForbidden(code: ApiErrorCode, message: string, details?: Record<string, unknown>): never {
   return throwApiError(HttpStatus.FORBIDDEN, code, message, details);
 }
 
-export function throwApiNotFound(
-  code: ApiErrorCode,
-  message: string,
-  details?: Record<string, unknown>,
-): never {
+export function throwApiNotFound(code: ApiErrorCode, message: string, details?: Record<string, unknown>): never {
   return throwApiError(HttpStatus.NOT_FOUND, code, message, details);
 }
 
-export function throwApiConflict(
-  code: ApiErrorCode,
-  message: string,
-  details?: Record<string, unknown>,
-): never {
+export function throwApiConflict(code: ApiErrorCode, message: string, details?: Record<string, unknown>): never {
   return throwApiError(HttpStatus.CONFLICT, code, message, details);
 }
 
-export function throwApiBadRequest(
-  code: ApiErrorCode,
-  message: string,
-  details?: Record<string, unknown>,
-): never {
+export function throwApiBadRequest(code: ApiErrorCode, message: string, details?: Record<string, unknown>): never {
   return throwApiError(HttpStatus.BAD_REQUEST, code, message, details);
 }

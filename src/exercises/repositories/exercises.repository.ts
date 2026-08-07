@@ -13,20 +13,6 @@ export type ExerciseFilters = {
   search?: string;
 };
 
-export type SampleOneFilters = {
-  category: string;
-  targets?: string[];
-  equipment?: string[];
-  excludeIds?: string[];
-};
-
-type SampleOneMatch = {
-  category: string;
-  target?: { $in: string[] };
-  equipment?: { $in: string[] };
-  id?: { $nin: string[] };
-};
-
 /** All exercise fields; instructions / instruction_steps only en + es. */
 const EXERCISE_PROJECTION = {
   id: 1,
@@ -56,16 +42,8 @@ export class ExercisesRepository {
     private readonly exerciseModel: Model<ExerciseDocument>,
   ) {}
 
-  find(
-    skip: number,
-    limit: number,
-    filters: ExerciseFilters = {},
-  ): Promise<ExerciseDocument[]> {
-    return this.exerciseModel
-      .find(this.buildFilter(filters), EXERCISE_PROJECTION)
-      .skip(skip)
-      .limit(limit)
-      .exec();
+  find(skip: number, limit: number, filters: ExerciseFilters = {}): Promise<ExerciseDocument[]> {
+    return this.exerciseModel.find(this.buildFilter(filters), EXERCISE_PROJECTION).skip(skip).limit(limit).exec();
   }
 
   findById(id: string): Promise<ExerciseDocument | null> {
@@ -78,10 +56,7 @@ export class ExercisesRepository {
 
   async findRandom(): Promise<ExerciseDocument | null> {
     const [exercise] = await this.exerciseModel
-      .aggregate<ExerciseDocument>([
-        { $sample: { size: 1 } },
-        { $project: EXERCISE_PROJECTION },
-      ])
+      .aggregate<ExerciseDocument>([{ $sample: { size: 1 } }, { $project: EXERCISE_PROJECTION }])
       .exec();
 
     return exercise ?? null;
@@ -119,11 +94,7 @@ export class ExercisesRepository {
   }
 
   /** Candidates for AI recommend (+ fields needed for the HTTP response). */
-  async findForRecommend(
-    category: string,
-    equipment: string[],
-    limit = 80,
-  ): Promise<ExerciseDocument[]> {
+  async findForRecommend(category: string, equipment: string[], limit = 80): Promise<ExerciseDocument[]> {
     return this.exerciseModel
       .find(
         { category, equipment: { $in: equipment } },
@@ -141,30 +112,6 @@ export class ExercisesRepository {
       .exec();
   }
 
-  async sampleOne(filters: SampleOneFilters): Promise<ExerciseDocument | null> {
-    const match: SampleOneMatch = { category: filters.category };
-
-    if (filters.targets?.length) {
-      match.target = { $in: filters.targets };
-    }
-    if (filters.equipment?.length) {
-      match.equipment = { $in: filters.equipment };
-    }
-    if (filters.excludeIds?.length) {
-      match.id = { $nin: filters.excludeIds };
-    }
-
-    const [exercise] = await this.exerciseModel
-      .aggregate<ExerciseDocument>([
-        { $match: match },
-        { $sample: { size: 1 } },
-        { $project: EXERCISE_PROJECTION },
-      ])
-      .exec();
-
-    return exercise ?? null;
-  }
-
   private buildFilter(filters: ExerciseFilters) {
     const exerciseFilter: {
       category?: string;
@@ -172,9 +119,7 @@ export class ExercisesRepository {
       equipment?: string;
       muscle_group?: string;
       target?: string;
-      $or?: Array<
-        { 'name.en': RegExp } | { 'name.es': RegExp } | { id: RegExp }
-      >;
+      $or?: Array<{ 'name.en': RegExp } | { 'name.es': RegExp } | { id: RegExp }>;
     } = {};
 
     if (filters.category) {
@@ -193,10 +138,7 @@ export class ExercisesRepository {
       exerciseFilter.target = filters.target;
     }
     if (filters.search) {
-      const rx = new RegExp(
-        this.toAccentInsensitivePattern(filters.search),
-        'i',
-      );
+      const rx = new RegExp(this.toAccentInsensitivePattern(filters.search), 'i');
       exerciseFilter.$or = [{ 'name.en': rx }, { 'name.es': rx }, { id: rx }];
     }
 
@@ -209,9 +151,7 @@ export class ExercisesRepository {
 
   /** Case + accent insensitive pattern for Spanish-friendly search. */
   private toAccentInsensitivePattern(input: string): string {
-    const base = this.escapeRegex(
-      input.normalize('NFD').replace(/\p{M}/gu, ''),
-    );
+    const base = this.escapeRegex(input.normalize('NFD').replace(/\p{M}/gu, ''));
     return base
       .replace(/a/gi, '[aáàäâã]')
       .replace(/e/gi, '[eéèëê]')

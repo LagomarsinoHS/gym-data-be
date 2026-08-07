@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -10,25 +10,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
 import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
 import { ExerciseLabelsResponseDto } from './dto/exercise-labels-response.dto';
-import {
-  GetExercisesQueryDto,
-  getExercisesQuerySchema,
-} from './dto/get-exercises-query.dto';
+import { GetExercisesQueryDto, getExercisesQuerySchema } from './dto/get-exercises-query.dto';
 import {
   RecommendExercisesQueryDto,
   RecommendExercisesResponseDto,
   recommendExercisesQuerySchema,
 } from './dto/recommend-exercises.dto';
-import {
-  Recommend2QueryDto,
-  Recommend2ResponseDto,
-  recommend2QuerySchema,
-} from './dto/recommend2-exercises.dto';
 import { ExercisesService } from './exercises.service';
 import { Exercise } from './schemas/exercise.schema';
 
@@ -70,33 +60,11 @@ export class ExercisesController {
   @ApiBearerAuth()
   //@UseGuards(JwtAuthGuard, PaidSubscriptionGuard)
   @ApiOperation({
-    summary:
-      '[Legacy] Recommend a mini workout for a zone and available equipment',
-    description:
-      'Requires JWT + paid subscription (not free). Uses zone presets (category + slot targets).',
-  })
-  @ApiOkResponse({ type: RecommendExercisesResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
-  @ApiForbiddenResponse({
-    description: 'Free / expired subscription (PAID_SUBSCRIPTION_REQUIRED)',
-  })
-  @ApiBadRequestResponse({ description: 'Invalid zone or equipment' })
-  recommend(
-    @Query(new JoiValidationPipe(recommendExercisesQuerySchema))
-    query: RecommendExercisesQueryDto,
-  ): Promise<RecommendExercisesResponseDto> {
-    return this.exercisesService.recommend(query);
-  }
-
-  @Get('recommend2')
-  @ApiBearerAuth()
-  //@UseGuards(JwtAuthGuard, PaidSubscriptionGuard)
-  @ApiOperation({
     summary: 'AI recommend: 4 exercises + explanation note',
     description:
-      'Requires JWT + paid subscription (not free). Filters catalog by zone + 1–2 equipment, OpenAI picks 4 + note.',
+      'Requires JWT + paid subscription (not free). Filters catalog by zone + 1–2 equipment, AI picks 4 with sets/reps/rest + note.',
   })
-  @ApiOkResponse({ type: Recommend2ResponseDto })
+  @ApiOkResponse({ type: RecommendExercisesResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
   @ApiForbiddenResponse({
     description: 'Free / expired subscription (PAID_SUBSCRIPTION_REQUIRED)',
@@ -104,11 +72,11 @@ export class ExercisesController {
   @ApiBadRequestResponse({
     description: 'Invalid zone/equipment or not enough matching exercises',
   })
-  recommend2(
-    @Query(new JoiValidationPipe(recommend2QuerySchema))
-    query: Recommend2QueryDto,
-  ): Promise<Recommend2ResponseDto> {
-    return this.exercisesService.recommend2(query);
+  recommend(
+    @Query(new JoiValidationPipe(recommendExercisesQuerySchema))
+    query: RecommendExercisesQueryDto,
+  ): Promise<RecommendExercisesResponseDto> {
+    return this.exercisesService.recommend(query);
   }
 
   @Get(':id')

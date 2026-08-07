@@ -46,6 +46,5 @@ export const updateProfileSchema = Joi.object<UpdateProfileDto>({
   .with('newPassword', 'currentPassword')
   .or('firstName', 'lastName', 'newPassword')
   .messages({
-    'object.missing':
-      'Provide at least one of firstName, lastName, or newPassword',
+    'object.missing': 'Provide at least one of firstName, lastName, or newPassword',
   });

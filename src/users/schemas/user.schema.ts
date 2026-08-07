@@ -82,8 +82,7 @@ export class CoachTrainingProgram {
 @Schema({ _id: false })
 export class ProgressPhoto {
   @ApiProperty({
-    example:
-      'https://res.cloudinary.com/demo/image/upload/v1/progress/user/front.png',
+    example: 'https://res.cloudinary.com/demo/image/upload/v1/progress/user/front.png',
   })
   @Prop({ required: true })
   url: string;
@@ -187,8 +186,7 @@ export class User {
   @ApiProperty({
     type: [CoachTrainingProgram],
     default: [],
-    description:
-      'Programs assigned by the coach to the athlete (separate from self-serve trainingProgram)',
+    description: 'Programs assigned by the coach to the athlete (separate from self-serve trainingProgram)',
   })
   @Prop({ type: [CoachTrainingProgram], default: [] })
   coachTrainingProgram: CoachTrainingProgram[];
@@ -196,8 +194,7 @@ export class User {
   @ApiProperty({
     type: [ProgressPhotoMonth],
     default: [],
-    description:
-      'Athlete progress photos by month (front/back). Not returned on /me — dedicated endpoints.',
+    description: 'Athlete progress photos by month (front/back). Not returned on /me — dedicated endpoints.',
   })
   @Prop({ type: [ProgressPhotoMonth], default: [] })
   progressPhotos: ProgressPhotoMonth[];
@@ -205,8 +202,7 @@ export class User {
   @ApiPropertyOptional({
     type: ProgressPhoto,
     nullable: true,
-    description:
-      'Account profile photo. Cloudinary: gym-app/profiles/{userId}/profilePhoto',
+    description: 'Account profile photo. Cloudinary: gym-app/profiles/{userId}/profilePhoto',
   })
   @Prop({ type: ProgressPhoto, default: null })
   profilePhoto: ProgressPhoto | null;
@@ -222,8 +218,7 @@ export class User {
 
   @ApiPropertyOptional({
     example: '2026-08-02T18:00:00.000Z',
-    description:
-      'Present only when the user was soft-deleted. Active users omit this field.',
+    description: 'Present only when the user was soft-deleted. Active users omit this field.',
   })
   @Prop({ type: Date, required: false })
   deletedAt?: Date;

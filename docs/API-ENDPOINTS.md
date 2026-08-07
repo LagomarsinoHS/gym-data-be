@@ -133,40 +133,20 @@ Ejemplo: `GET /exercises?page=1&limit=20&category=chest&search=press`
 | | |
 |---|---|
 | Auth | JWT + **subscription ≠ free** (activa) |
-| Respuesta | `200` — `{ zone, equipment[], exercises[] }` (con `role` por slot) |
-| Errores | `401` sin JWT; `403` `PAID_SUBSCRIPTION_REQUIRED` |
-| Notas | **Legacy** — presets de zona + sample en Mongo; sin OpenAI |
+| Respuesta | `200` — `{ zone, equipment[], locale, note, exercises[4] }` (cada ejercicio con `sets` / `reps` / `rest`) |
+| Errores | `401` sin JWT; `403` `PAID_SUBSCRIPTION_REQUIRED`; `400` zona/equipment inválidos o &lt; 4 candidatos; `502`/`503` AI |
+
+Flujo: filtra catálogo por `category=zone` + `equipment ∈ lista` → manda candidatos slim (`id`, `name` en `locale`, `equipment`, `target`) a `AiService` (Gemini) → elige **exactamente 4** ids con `sets`/`reps`/`rest` + `note` en el idioma pedido → resuelve ejercicios del catálogo (nombres siguen bilingües `{ en, es }`).
 
 **Query**
 
 | Param | | Notas |
 |---|---|---|
-| `zone` | Obligatorio | `back` \| `cardio` \| `chest` \| `lower arms` \| `lower legs` \| `neck` \| `shoulders` \| `upper arms` \| `upper legs` \| `waist` |
-| `equipment` | Obligatorio | uno o más (comma-separated o repetido) |
-
-Ejemplo: `GET /exercises/recommend?zone=chest&equipment=barbell,dumbbell`
-
----
-
-### `GET /exercises/recommend2`
-
-| | |
-|---|---|
-| Auth | JWT + **subscription ≠ free** (activa) |
-| Respuesta | `200` — `{ zone, equipment[], note, exercises[4] }` |
-| Errores | `401` sin JWT; `403` `PAID_SUBSCRIPTION_REQUIRED`; `400` zona/equipment inválidos o &lt; 4 candidatos; `502`/`503` OpenAI |
-
-Flujo: filtra catálogo por `category=zone` + `equipment ∈ lista` → manda candidatos slim (`id`, `name` en `locale`, `equipment`, `target`) a OpenAI → elige **exactamente 4** ids + `note` en el idioma pedido → resuelve ejercicios del catálogo (nombres siguen bilingües `{ en, es }`).
-
-**Query**
-
-| Param | | Notas |
-|---|---|---|
-| `zone` | Obligatorio | mismas zonas que recommend |
+| `zone` | Obligatorio | category del catálogo (mismas que `GET /exercises/labels` → `category`) |
 | `equipment` | Obligatorio | **1 o 2** valores (comma-separated o repetido) |
 | `locale` | Opcional | `es` \| `en` (default `es`) — idioma de la `note` |
 
-Ejemplo: `GET /exercises/recommend2?zone=chest&equipment=barbell,dumbbell&locale=es`
+Ejemplo: `GET /exercises/recommend?zone=chest&equipment=barbell,dumbbell&locale=es`
 
 ```json
 {
@@ -182,7 +162,10 @@ Ejemplo: `GET /exercises/recommend2?zone=chest&equipment=barbell,dumbbell&locale
       "gif_url": "videos/…",
       "category": "chest",
       "equipment": "barbell",
-      "target": "pectorals"
+      "target": "pectorals",
+      "sets": 3,
+      "reps": "8-10",
+      "rest": 90
     }
   ]
 }
@@ -400,11 +383,11 @@ GET /users/{userId}/progress-photos?year=2026
 |---|---|
 | Auth | JWT + **coach** + **subscription ≠ free** (activa) |
 | Body | `{ yearMonths: [YYYY-MM, YYYY-MM], locale? }` |
-| Respuesta | `200` — `{ analysis }` texto libre de OpenAI |
+| Respuesta | `200` — `{ sections: [{ title, blocks }] }` JSON estructurado de la IA |
 | Authz | JWT + **coach** + **subscription ≠ free** |
-| Errores | `401` sin JWT; `403` role / `PAID_SUBSCRIPTION_REQUIRED`; `400` meses inválidos; `404` atleta; `502`/`503` OpenAI |
+| Errores | `401` sin JWT; `403` role / `PAID_SUBSCRIPTION_REQUIRED`; `400` meses inválidos; `404` atleta; `502`/`503` AI |
 
-El BE pasa a OpenAI las fotos `older` (antes) y `newer` (actuales) con las URLs de Cloudinary disponibles.
+El BE descarga las fotos `older` (antes) y `newer` (actuales) desde Cloudinary y las envía a Gemini (con el texto del prompt).
 
 **Body**
 
@@ -426,7 +409,24 @@ POST /users/{userId}/progress-photos/analyze
 
 ```json
 {
-  "analysis": "Se observa mejor definición en torso y espalda… En frente… En espalda…"
+  "sections": [
+    {
+      "title": "Análisis General",
+      "blocks": [
+        { "type": "paragraph", "text": "Se observa mejor definición en torso…" }
+      ]
+    },
+    {
+      "title": "Principales Avances",
+      "blocks": [
+        {
+          "type": "subtitle",
+          "title": "Hipertrofia pectoral",
+          "text": "Mayor proyección del pecho en la vista lateral…"
+        }
+      ]
+    }
+  ]
 }
 ```
 
@@ -769,9 +769,9 @@ Códigos estables para i18n en el client (`code` + `message` EN de debug):
 | `ATHLETE_HAS_PENDING_INVITE` | 409 | Athlete ya tiene una invite pending |
 | `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
 | `CURRENT_PASSWORD_INCORRECT` | 400 | `PATCH /users/me` con `newPassword` y contraseña actual incorrecta |
-| `OPENAI_NOT_CONFIGURED` | 503 | Llamada a `OpenAiService` sin `OPENAI_API_KEY` |
-| `OPENAI_REQUEST_FAILED` | 502 | Error / respuesta vacía o JSON inválido de OpenAI |
-| `PAID_SUBSCRIPTION_REQUIRED` | 403 | `recommend` / `recommend2` / `progress-photos/analyze` con plan free o pago vencido |
+| `AI_NOT_CONFIGURED` | 503 | Llamada a `AiService` sin `GEMINI_API_KEY` |
+| `AI_REQUEST_FAILED` | 502 | Error / respuesta vacía o JSON inválido de la IA |
+| `PAID_SUBSCRIPTION_REQUIRED` | 403 | `recommend` / `progress-photos/analyze` con plan free o pago vencido |
 
 Helpers: `src/common/errors/api-http.exception.ts`.
 

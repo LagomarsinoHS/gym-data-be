@@ -1,10 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Inject,
-  Injectable,
-  forwardRef,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, Injectable, forwardRef } from '@nestjs/common';
 import { UsersService } from '../../users/users.service';
 import { AuthenticatedUser } from '../types/jwt-payload.type';
 

@@ -3,9 +3,7 @@ import type { ProgressPhotosResponseDto } from '../dto/progress-photos-response.
 import type { ProgressPhotoPublicDto } from '../dto/upload-progress-photo-response.dto';
 import { recomputeCurrentWeightKg } from './progress-photo-weight';
 
-function toPublicPhoto(
-  photo: ProgressPhotoMonth['front'],
-): ProgressPhotoPublicDto | null {
+function toPublicPhoto(photo: ProgressPhotoMonth['front']): ProgressPhotoPublicDto | null {
   if (!photo) return null;
   return { url: photo.url, uploadedAt: photo.uploadedAt };
 }
@@ -14,13 +12,8 @@ function toPublicPhoto(
  * Groups flat progressPhotos into years → months (newest year/month first).
  * Optional `year` keeps only that calendar year.
  */
-export function groupProgressPhotos(
-  progressPhotos: ProgressPhotoMonth[],
-  year?: number,
-): ProgressPhotosResponseDto {
-  const filtered = year
-    ? progressPhotos.filter((entry) => entry.yearMonth.startsWith(`${year}-`))
-    : progressPhotos;
+export function groupProgressPhotos(progressPhotos: ProgressPhotoMonth[], year?: number): ProgressPhotosResponseDto {
+  const filtered = year ? progressPhotos.filter((entry) => entry.yearMonth.startsWith(`${year}-`)) : progressPhotos;
 
   const byYear = new Map<number, ProgressPhotosResponseDto['years'][number]>();
 

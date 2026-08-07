@@ -26,9 +26,7 @@ export class AuthController {
   @ApiBody({ type: RegisterDto })
   @ApiCreatedResponse({ type: LoginResponseDto })
   @ApiConflictResponse({ description: 'User already registered' })
-  register(
-    @Body(new JoiValidationPipe(registerSchema)) dto: RegisterDto,
-  ): Promise<LoginResponseDto> {
+  register(@Body(new JoiValidationPipe(registerSchema)) dto: RegisterDto): Promise<LoginResponseDto> {
     return this.authService.register(dto);
   }
 
@@ -37,9 +35,7 @@ export class AuthController {
   @ApiBody({ type: LoginDto })
   @ApiOkResponse({ type: LoginResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
-  login(
-    @Body(new JoiValidationPipe(loginSchema)) dto: LoginDto,
-  ): Promise<LoginResponseDto> {
+  login(@Body(new JoiValidationPipe(loginSchema)) dto: LoginDto): Promise<LoginResponseDto> {
     return this.authService.login(dto);
   }
 }

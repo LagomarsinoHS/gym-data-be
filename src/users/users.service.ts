@@ -16,17 +16,14 @@ import {
   throwApiNotFound,
 } from '../common/errors/api-http.exception';
 import { StorageService } from '../storage/storage.service';
-import {
-  PROFILE_PHOTO_PUBLIC_ID,
-  profilePhotoFolder,
-  progressPhotoFolder,
-} from '../storage/constants';
+import { PROFILE_PHOTO_PUBLIC_ID, profilePhotoFolder, progressPhotoFolder } from '../storage/constants';
 import { HashingService } from '../common/hashing/hashing.service';
 import { UsersRepository } from './repositories/users.repository';
 import { InvitesRepository } from './repositories/invites.repository';
 import {
   CoachTrainingProgram,
   ProgressPhoto,
+  ProgressPhotoMonth,
   TrainingProgramExercise,
   User,
   UserDocument,
@@ -52,10 +49,7 @@ import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-resp
 import { UploadProgressPhotoDto } from './dto/upload-progress-photo.dto';
 import { DeleteProgressPhotoDto } from './dto/delete-progress-photo.dto';
 import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
-import {
-  AnalyzeProgressPhotosDto,
-  AnalyzeProgressPhotosResponseDto,
-} from './dto/analyze-progress-photos.dto';
+import { AnalyzeProgressPhotosDto, AnalyzeProgressPhotosResponseDto } from './dto/analyze-progress-photos.dto';
 import { currentYearMonth } from './utils/year-month';
 import { groupProgressPhotos } from './utils/group-progress-photos';
 import { cloneProgressPhotoMonths } from './utils/progress-photo-weight';
@@ -68,16 +62,14 @@ import { ExcelService } from '../excel/excel.service';
 import type { AthleteTrainingProgramExport } from '../excel/types/athlete-training-program-export.type';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
-import { OpenAiService } from '../openai/openai.service';
+import type { AiService } from '../ai/ai.service';
+import { AI_SERVICE } from '../ai/ai.tokens';
 import { ZipService } from '../zip/zip.service';
 import { InviteStatus } from './types/invite-status.enum';
 import { Role } from './types/role.enum';
 import { SubscriptionPlan } from './types/subscription-plan.enum';
 import type { GrantableSubscriptionPlan } from './types/subscription-plan.enum';
-import {
-  getCoachAthleteLimit,
-  isPaidSubscriptionPlan,
-} from './types/coach-athlete-limits';
+import { getCoachAthleteLimit, isPaidSubscriptionPlan } from './types/coach-athlete-limits';
 
 export type CoachTrainingProgramExportFile = {
   buffer: Buffer;
@@ -91,15 +83,10 @@ type ProgressPhotoUploadFile = {
   mimetype: string;
 };
 
-const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 /** Typed string until IDE TS service picks up ApiErrorCode.CurrentPasswordIncorrect. */
-const CURRENT_PASSWORD_INCORRECT: ApiErrorCode =
-  'CURRENT_PASSWORD_INCORRECT' as ApiErrorCode;
+const CURRENT_PASSWORD_INCORRECT: ApiErrorCode = 'CURRENT_PASSWORD_INCORRECT' as ApiErrorCode;
 
 @Injectable()
 export class UsersService {
@@ -112,7 +99,7 @@ export class UsersService {
     private readonly zipService: ZipService,
     private readonly storageService: StorageService,
     private readonly hashingService: HashingService,
-    private readonly openAiService: OpenAiService,
+    @Inject(AI_SERVICE) private readonly aiService: AiService,
   ) {}
 
   // USERS
@@ -129,10 +116,7 @@ export class UsersService {
    * Soft-delete by email after verifying it belongs to the JWT user.
    * Only sets `deletedAt`; leaves coachId and related data intact.
    */
-  async softDeleteAccount(
-    requesterUserId: string,
-    email: string,
-  ): Promise<OkResponseDto> {
+  async softDeleteAccount(requesterUserId: string, email: string): Promise<OkResponseDto> {
     const user = await this.usersRepository.findByEmail(email);
     if (!user) {
       throw new NotFoundException(`User with email ${email} not found`);
@@ -150,14 +134,9 @@ export class UsersService {
    * Ensures the user has an active paid plan (not free / not expired).
    */
   async requirePaidSubscription(userId: string): Promise<void> {
-    const user = await this.syncSubscriptionIfExpired(
-      await this.findByIdOrFail(userId),
-    );
+    const user = await this.syncSubscriptionIfExpired(await this.findByIdOrFail(userId));
     if (!isPaidSubscriptionPlan(user.subscription.plan)) {
-      throwApiForbidden(
-        ApiErrorCode.PaidSubscriptionRequired,
-        'A paid subscription is required',
-      );
+      throwApiForbidden(ApiErrorCode.PaidSubscriptionRequired, 'A paid subscription is required');
     }
   }
 
@@ -165,10 +144,7 @@ export class UsersService {
    * Partial self-update: firstName and/or lastName and/or password.
    * Password change requires a valid currentPassword.
    */
-  async updateProfile(
-    userId: string,
-    dto: UpdateProfileDto,
-  ): Promise<MeResponseDto> {
+  async updateProfile(userId: string, dto: UpdateProfileDto): Promise<MeResponseDto> {
     const user = await this.findByIdOrFail(userId);
     const patch: {
       firstName?: string;
@@ -184,16 +160,9 @@ export class UsersService {
     }
 
     if (dto.newPassword) {
-      const valid = await this.hashingService.verify(
-        user.password,
-        dto.currentPassword ?? '',
-      );
+      const valid = await this.hashingService.verify(user.password, dto.currentPassword ?? '');
       if (!valid) {
-        throwApiError(
-          HttpStatus.BAD_REQUEST,
-          CURRENT_PASSWORD_INCORRECT,
-          'Current password is incorrect',
-        );
+        throwApiError(HttpStatus.BAD_REQUEST, CURRENT_PASSWORD_INCORRECT, 'Current password is incorrect');
       }
       patch.password = await this.hashingService.hash(dto.newPassword);
     }
@@ -202,10 +171,7 @@ export class UsersService {
     return this.getEnrichedUserById(userId);
   }
 
-  async findByIdOrEmail(params: {
-    userId?: string;
-    email?: string;
-  }): Promise<UserDocument> {
+  async findByIdOrEmail(params: { userId?: string; email?: string }): Promise<UserDocument> {
     if (params.userId) {
       return this.findByIdOrFail(params.userId);
     }
@@ -213,9 +179,7 @@ export class UsersService {
     if (params.email) {
       const user = await this.usersRepository.findByEmail(params.email);
       if (!user) {
-        throw new NotFoundException(
-          `User with email ${params.email} not found`,
-        );
+        throw new NotFoundException(`User with email ${params.email} not found`);
       }
       return user;
     }
@@ -224,9 +188,7 @@ export class UsersService {
   }
 
   async getEnrichedUserById(id: string): Promise<MeResponseDto> {
-    const user = await this.syncSubscriptionIfExpired(
-      await this.findByIdOrFail(id),
-    );
+    const user = await this.syncSubscriptionIfExpired(await this.findByIdOrFail(id));
 
     const {
       password: _password,
@@ -239,9 +201,7 @@ export class UsersService {
 
     const ids = [
       ...trainingProgram.map((item) => item.exerciseId),
-      ...coachTrainingProgram.flatMap((session) =>
-        session.items.map((item) => item.exerciseId),
-      ),
+      ...coachTrainingProgram.flatMap((session) => session.items.map((item) => item.exerciseId)),
     ];
     const catalog = await this.exercisesService.getExercisesByIds(ids);
     const byId = new Map(catalog.map((e) => [e.id, e]));
@@ -253,10 +213,7 @@ export class UsersService {
       currentWeightKg: user.currentWeightKg ?? null,
       coachQuota: await this.buildCoachQuota(user),
       trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
-      coachTrainingProgram: this.enrichCoachTrainingProgram(
-        coachTrainingProgram,
-        byId,
-      ),
+      coachTrainingProgram: this.enrichCoachTrainingProgram(coachTrainingProgram, byId),
     };
   }
 
@@ -264,14 +221,11 @@ export class UsersService {
    * Pending coach invite for an athlete (from invites collection).
    * Always { invite }; coaches / no pending → { invite: null }.
    */
-  async getPendingCoachInvite(
-    userId: string,
-  ): Promise<PendingCoachInviteResponseDto> {
+  async getPendingCoachInvite(userId: string): Promise<PendingCoachInviteResponseDto> {
     const user = await this.findByIdOrFail(userId);
     if (user.role !== Role.Athlete) return { invite: null };
 
-    const pendingInvite =
-      await this.invitesRepository.findPendingByAthleteId(userId);
+    const pendingInvite = await this.invitesRepository.findPendingByAthleteId(userId);
 
     if (!pendingInvite) return { invite: null };
 
@@ -281,33 +235,20 @@ export class UsersService {
     };
   }
 
-  async createCoachInvite(
-    coachId: string,
-    email: string,
-  ): Promise<OkResponseDto> {
-    const coach = await this.syncSubscriptionIfExpired(
-      await this.findByIdOrFail(coachId),
-    );
+  async createCoachInvite(coachId: string, email: string): Promise<OkResponseDto> {
+    const coach = await this.syncSubscriptionIfExpired(await this.findByIdOrFail(coachId));
     await this.checkCoachAthleteQuota(coach);
 
     const athlete = await this.usersRepository.findByEmail(email);
 
     if (!athlete || athlete.role !== Role.Athlete) {
-      throwApiNotFound(
-        ApiErrorCode.AthleteNotFoundByEmail,
-        'No athlete found with that email',
-      );
+      throwApiNotFound(ApiErrorCode.AthleteNotFoundByEmail, 'No athlete found with that email');
     }
 
-    const existingInvite = await this.invitesRepository.findPendingByAthleteId(
-      athlete.id,
-    );
+    const existingInvite = await this.invitesRepository.findPendingByAthleteId(athlete.id);
 
     if (existingInvite) {
-      throwApiConflict(
-        ApiErrorCode.AthleteHasPendingInvite,
-        'This athlete has a pending invitation',
-      );
+      throwApiConflict(ApiErrorCode.AthleteHasPendingInvite, 'This athlete has a pending invitation');
     }
 
     await this.invitesRepository.create({
@@ -321,28 +262,19 @@ export class UsersService {
     return { ok: true };
   }
 
-  async respondToCoachInvite(
-    userId: string,
-    action: CoachInviteResponseAction,
-  ): Promise<MeResponseDto> {
+  async respondToCoachInvite(userId: string, action: CoachInviteResponseAction): Promise<MeResponseDto> {
     await this.findByIdOrFail(userId);
 
-    const pendingInvite =
-      await this.invitesRepository.findPendingByAthleteId(userId);
+    const pendingInvite = await this.invitesRepository.findPendingByAthleteId(userId);
 
     if (!pendingInvite) {
-      throwApiConflict(
-        ApiErrorCode.NoPendingCoachInvite,
-        'No pending coach invitation',
-      );
+      throwApiConflict(ApiErrorCode.NoPendingCoachInvite, 'No pending coach invitation');
     }
 
     const accept = action === CoachInviteResponseAction.Accept;
 
     if (accept) {
-      const coach = await this.syncSubscriptionIfExpired(
-        await this.findByIdOrFail(pendingInvite.coachId),
-      );
+      const coach = await this.syncSubscriptionIfExpired(await this.findByIdOrFail(pendingInvite.coachId));
 
       try {
         await this.checkCoachAthleteQuota(coach, {
@@ -350,9 +282,7 @@ export class UsersService {
         });
       } catch (error) {
         // Coach is full: this invite and every other pending for that coach are dead.
-        await this.invitesRepository.cancelPendingByCoachId(
-          pendingInvite.coachId,
-        );
+        await this.invitesRepository.cancelPendingByCoachId(pendingInvite.coachId);
         throw error;
       }
     }
@@ -360,24 +290,15 @@ export class UsersService {
     const status = accept ? InviteStatus.Accepted : InviteStatus.Rejected;
 
     await this.invitesRepository.updatePendingByAthleteId(userId, status);
-    await this.usersRepository.applyCoachInviteResponse(
-      userId,
-      accept,
-      pendingInvite.coachId,
-    );
+    await this.usersRepository.applyCoachInviteResponse(userId, accept, pendingInvite.coachId);
 
     if (accept) {
-      const athleteCount = await this.usersRepository.countAthletesByCoachId(
-        pendingInvite.coachId,
-      );
+      const athleteCount = await this.usersRepository.countAthletesByCoachId(pendingInvite.coachId);
       const coach = await this.findByIdOrFail(pendingInvite.coachId);
       const limit = getCoachAthleteLimit(coach.subscription.plan);
 
       if (athleteCount >= limit) {
-        await this.invitesRepository.cancelPendingByCoachId(
-          pendingInvite.coachId,
-          userId,
-        );
+        await this.invitesRepository.cancelPendingByCoachId(pendingInvite.coachId, userId);
       }
     }
 
@@ -396,9 +317,7 @@ export class UsersService {
       this.usersRepository.countAthletesByCoachId(coachId, search),
     ]);
 
-    const data = await Promise.all(
-      athletes.map((athlete) => this.getEnrichedUserById(athlete.id)),
-    );
+    const data = await Promise.all(athletes.map((athlete) => this.getEnrichedUserById(athlete.id)));
 
     return { data, total };
   }
@@ -410,16 +329,9 @@ export class UsersService {
     status?: InviteStatus,
   ): Promise<{ data: CoachInviteListItemDto[]; total: number }> {
     const skip = (page - 1) * limit;
-    const { invites, total } = await this.invitesRepository.findByCoachId(
-      coachId,
-      skip,
-      limit,
-      status,
-    );
+    const { invites, total } = await this.invitesRepository.findByCoachId(coachId, skip, limit, status);
 
-    const athletes = await this.usersRepository.findByIds(
-      invites.map((invite) => invite.athleteId),
-    );
+    const athletes = await this.usersRepository.findByIds(invites.map((invite) => invite.athleteId));
     const athleteById = new Map(athletes.map((a) => [a.id, a]));
 
     const data = invites.map((invite) => {
@@ -455,15 +367,10 @@ export class UsersService {
     }
 
     if (athlete.coachId !== coachId) {
-      throw new ForbiddenException(
-        'You can only edit athletes assigned to you',
-      );
+      throw new ForbiddenException('You can only edit athletes assigned to you');
     }
 
-    await this.usersRepository.setCoachTrainingProgram(
-      athleteId,
-      dto.coachTrainingProgram,
-    );
+    await this.usersRepository.setCoachTrainingProgram(athleteId, dto.coachTrainingProgram);
 
     return this.getEnrichedUserById(athleteId);
   }
@@ -474,10 +381,7 @@ export class UsersService {
   ): Promise<CoachTrainingProgramExportFile> {
     const locale = dto.locale ?? DEFAULT_EXCEL_LOCALE;
     const athleteIds = [...new Set(dto.athleteIds)];
-    const athletes = await this.usersRepository.findAthletesByCoachIdForExport(
-      coachId,
-      athleteIds,
-    );
+    const athletes = await this.usersRepository.findAthletesByCoachIdForExport(coachId, athleteIds);
 
     if (athletes.length === 0) {
       throw new NotFoundException('No athletes found to export');
@@ -493,24 +397,14 @@ export class UsersService {
       }
     }
 
-    const catalog = await this.exercisesService.getExercisesByIds([
-      ...exerciseIds,
-    ]);
+    const catalog = await this.exercisesService.getExercisesByIds([...exerciseIds]);
     const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]));
 
     const files: { filename: string; buffer: Buffer }[] = [];
 
     for (const athlete of athletes) {
-      const exportData = this.toAthleteTrainingProgramExport(
-        athlete,
-        byId,
-        locale,
-      );
-      const buffer =
-        await this.excelService.buildAthleteTrainingProgramWorkbook(
-          exportData,
-          locale,
-        );
+      const exportData = this.toAthleteTrainingProgramExport(athlete, byId, locale);
+      const buffer = await this.excelService.buildAthleteTrainingProgramWorkbook(exportData, locale);
       if (!buffer) {
         continue;
       }
@@ -528,8 +422,7 @@ export class UsersService {
     return files.length === 1
       ? {
           buffer: files[0].buffer,
-          contentType:
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           filename: files[0].filename,
         }
       : {
@@ -539,15 +432,10 @@ export class UsersService {
         };
   }
 
-  async addToTrainingProgram(
-    userId: string,
-    exerciseIds: string[],
-  ): Promise<MeResponseDto> {
+  async addToTrainingProgram(userId: string, exerciseIds: string[]): Promise<MeResponseDto> {
     const user = await this.findByIdOrFail(userId);
 
-    const existing = new Set(
-      user.trainingProgram.map((item) => item.exerciseId),
-    );
+    const existing = new Set(user.trainingProgram.map((item) => item.exerciseId));
     const toAdd = [...new Set(exerciseIds)].filter((id) => !existing.has(id));
     if (toAdd.length === 0) {
       return this.getEnrichedUserById(userId);
@@ -560,10 +448,7 @@ export class UsersService {
     return this.getEnrichedUserById(userId);
   }
 
-  async removeFromTrainingProgram(
-    userId: string,
-    exerciseId: string,
-  ): Promise<MeResponseDto> {
+  async removeFromTrainingProgram(userId: string, exerciseId: string): Promise<MeResponseDto> {
     await this.findByIdOrFail(userId);
     await this.usersRepository.removeFromTrainingProgram(userId, exerciseId);
     return this.getEnrichedUserById(userId);
@@ -576,32 +461,17 @@ export class UsersService {
   ): Promise<MeResponseDto> {
     await this.findByIdOrFail(userId);
 
-    const updated = await this.usersRepository.updateTrainingProgramExercise(
-      userId,
-      exerciseId,
-      patch,
-    );
+    const updated = await this.usersRepository.updateTrainingProgramExercise(userId, exerciseId, patch);
     if (!updated) {
-      throw new NotFoundException(
-        `Exercise ${exerciseId} not found in training program`,
-      );
+      throw new NotFoundException(`Exercise ${exerciseId} not found in training program`);
     }
 
     return this.getEnrichedUserById(userId);
   }
 
-  async grantSubscription(
-    userId: string,
-    plan: GrantableSubscriptionPlan,
-    expiresAt: Date,
-  ): Promise<MeResponseDto> {
+  async grantSubscription(userId: string, plan: GrantableSubscriptionPlan, expiresAt: Date): Promise<MeResponseDto> {
     await this.findByIdOrFail(userId);
-    await this.usersRepository.setPaidSubscription(
-      userId,
-      plan,
-      new Date(),
-      expiresAt,
-    );
+    await this.usersRepository.setPaidSubscription(userId, plan, new Date(), expiresAt);
     return this.getEnrichedUserById(userId);
   }
 
@@ -617,10 +487,7 @@ export class UsersService {
    * Upload / replace profile photo.
    * Cloudinary: gym-app/profiles/{userId}/profilePhoto (overwrite).
    */
-  async uploadProfilePhoto(
-    userId: string,
-    file?: ProgressPhotoUploadFile,
-  ): Promise<MeResponseDto> {
+  async uploadProfilePhoto(userId: string, file?: ProgressPhotoUploadFile): Promise<MeResponseDto> {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Image file is required');
     }
@@ -657,9 +524,7 @@ export class UsersService {
     const backFile = files?.back?.[0];
 
     if (!frontFile && !backFile) {
-      throw new BadRequestException(
-        'At least one image is required: front and/or back',
-      );
+      throw new BadRequestException('At least one image is required: front and/or back');
     }
 
     this.validateUploadedImageFile(frontFile);
@@ -711,27 +576,18 @@ export class UsersService {
     return {
       yearMonth,
       weightKg: month.weightKg,
-      front: month.front
-        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
-        : null,
-      back: month.back
-        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
-        : null,
+      front: month.front ? { url: month.front.url, uploadedAt: month.front.uploadedAt } : null,
+      back: month.back ? { url: month.back.url, uploadedAt: month.back.uploadedAt } : null,
     };
   }
 
-  async deleteProgressPhoto(
-    athleteId: string,
-    dto: DeleteProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
+  async deleteProgressPhoto(athleteId: string, dto: DeleteProgressPhotoDto): Promise<UploadProgressPhotoResponseDto> {
     const user = await this.findByIdOrFail(athleteId);
     const { yearMonth, side } = dto;
 
     const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
 
-    const monthIndex = progressPhotos.findIndex(
-      (entry) => entry.yearMonth === yearMonth,
-    );
+    const monthIndex = progressPhotos.findIndex((entry) => entry.yearMonth === yearMonth);
     if (monthIndex < 0) {
       throw new NotFoundException(`No progress photos for month ${yearMonth}`);
     }
@@ -741,9 +597,7 @@ export class UsersService {
     if (side) {
       const existing = month[side];
       if (!existing) {
-        throw new NotFoundException(
-          `No ${side} progress photo for month ${yearMonth}`,
-        );
+        throw new NotFoundException(`No ${side} progress photo for month ${yearMonth}`);
       }
 
       await this.storageService.deleteImage(existing.publicId, {
@@ -754,14 +608,10 @@ export class UsersService {
       if (!month.front && !month.back) {
         month.weightKg = null;
         progressPhotos.splice(monthIndex, 1);
-        await this.storageService.deleteFolder(
-          progressPhotoFolder(athleteId, yearMonth),
-        );
+        await this.storageService.deleteFolder(progressPhotoFolder(athleteId, yearMonth));
       }
     } else {
-      await this.storageService.deleteFolder(
-        progressPhotoFolder(athleteId, yearMonth),
-      );
+      await this.storageService.deleteFolder(progressPhotoFolder(athleteId, yearMonth));
       progressPhotos.splice(monthIndex, 1);
       month.front = null;
       month.back = null;
@@ -773,12 +623,8 @@ export class UsersService {
     return {
       yearMonth,
       weightKg: month.weightKg ?? null,
-      front: month.front
-        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
-        : null,
-      back: month.back
-        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
-        : null,
+      front: month.front ? { url: month.front.url, uploadedAt: month.front.uploadedAt } : null,
+      back: month.back ? { url: month.back.url, uploadedAt: month.back.uploadedAt } : null,
     };
   }
 
@@ -790,13 +636,10 @@ export class UsersService {
     const target = await this.findByIdOrFail(targetUserId);
 
     const isSelf = requester.userId === targetUserId;
-    const isAssignedCoach =
-      requester.role === Role.Coach && target.coachId === requester.userId;
+    const isAssignedCoach = requester.role === Role.Coach && target.coachId === requester.userId;
 
     if (!isSelf && !isAssignedCoach) {
-      throw new ForbiddenException(
-        'You can only view your own progress photos or those of your athletes',
-      );
+      throw new ForbiddenException('You can only view your own progress photos or those of your athletes');
     }
 
     return groupProgressPhotos(target.progressPhotos ?? [], year);
@@ -813,41 +656,49 @@ export class UsersService {
     const athlete = await this.findByIdOrFail(athleteId);
 
     const [firstYearMonth, secondYearMonth] = dto.yearMonths;
-    const olderYearMonth =
-      firstYearMonth < secondYearMonth ? firstYearMonth : secondYearMonth;
-    const newerYearMonth =
-      firstYearMonth < secondYearMonth ? secondYearMonth : firstYearMonth;
+    const olderYearMonth = firstYearMonth < secondYearMonth ? firstYearMonth : secondYearMonth;
+    const newerYearMonth = firstYearMonth < secondYearMonth ? secondYearMonth : firstYearMonth;
 
     const months = athlete.progressPhotos;
     const older = months.find((m) => m.yearMonth === olderYearMonth) ?? null;
     const newer = months.find((m) => m.yearMonth === newerYearMonth) ?? null;
 
     if (!older || !newer) {
-      throw new BadRequestException(
-        'Both months must exist in the athlete progress photos',
-      );
+      throw new BadRequestException('Both months must exist in the athlete progress photos');
     }
 
-    const { analysis } = await this.openAiService.analyzeProgressPhotos({
+    const olderUrls = this.progressMonthPhotoUrls(older);
+    const newerUrls = this.progressMonthPhotoUrls(newer);
+
+    if (olderUrls.length === 0 || newerUrls.length === 0) {
+      throw new BadRequestException('Both months must have at least one progress photo');
+    }
+
+    const result = await this.aiService.analyzeProgressPhotos({
       locale: dto.locale,
       older: {
         yearMonth: older.yearMonth,
         weightKg: older.weightKg ?? null,
-        frontUrl: older.front?.url,
-        backUrl: older.back?.url,
+        photoUrls: olderUrls,
       },
       newer: {
         yearMonth: newer.yearMonth,
         weightKg: newer.weightKg ?? null,
-        frontUrl: newer.front?.url,
-        backUrl: newer.back?.url,
+        photoUrls: newerUrls,
       },
     });
 
-    return { analysis };
+    return { sections: result.sections };
   }
 
   // HELPERS
+
+  private progressMonthPhotoUrls(month: ProgressPhotoMonth): string[] {
+    const urls: string[] = [];
+    if (month.front?.url) urls.push(month.front.url);
+    if (month.back?.url) urls.push(month.back.url);
+    return urls;
+  }
 
   private async findByIdOrFail(id: string): Promise<UserDocument> {
     const user = await this.usersRepository.findById(id);
@@ -863,15 +714,11 @@ export class UsersService {
       throw new BadRequestException('Image file is required');
     }
     if (!ALLOWED_PROGRESS_PHOTO_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException(
-        `Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`,
-      );
+      throw new BadRequestException(`Unsupported image type: ${file.mimetype}. Allowed: jpeg, png, webp`);
     }
   }
 
-  private toMeProfilePhoto(
-    profilePhoto?: ProgressPhoto | null,
-  ): MeProfilePhotoDto | null {
+  private toMeProfilePhoto(profilePhoto?: ProgressPhoto | null): MeProfilePhotoDto | null {
     if (!profilePhoto?.url) return null;
     return {
       url: profilePhoto.url,
@@ -936,9 +783,7 @@ export class UsersService {
     };
   }
 
-  private async resolveAssignedCoach(
-    coachId: string | null | undefined,
-  ): Promise<MePendingCoachSummaryDto | null> {
+  private async resolveAssignedCoach(coachId: string | null | undefined): Promise<MePendingCoachSummaryDto | null> {
     if (!coachId) return null;
     const coach = await this.usersRepository.findById(coachId);
     if (!coach) return null;
@@ -951,9 +796,7 @@ export class UsersService {
   /**
    * If paid period already ended, persist free subscription so /me stays current.
    */
-  private async syncSubscriptionIfExpired(
-    user: UserDocument,
-  ): Promise<UserDocument> {
+  private async syncSubscriptionIfExpired(user: UserDocument): Promise<UserDocument> {
     const { subscription } = user;
     if (!isPaidSubscriptionPlan(subscription.plan)) {
       return user;
@@ -973,17 +816,13 @@ export class UsersService {
     return user;
   }
 
-  private async buildCoachQuota(
-    user: UserDocument,
-  ): Promise<MeResponseDto['coachQuota']> {
+  private async buildCoachQuota(user: UserDocument): Promise<MeResponseDto['coachQuota']> {
     if (user.role !== Role.Coach) {
       return null;
     }
 
     const athleteLimit = getCoachAthleteLimit(user.subscription.plan);
-    const athleteCount = await this.usersRepository.countAthletesByCoachId(
-      user.id,
-    );
+    const athleteCount = await this.usersRepository.countAthletesByCoachId(user.id);
 
     return {
       athleteLimit,
@@ -992,14 +831,9 @@ export class UsersService {
     };
   }
 
-  private async checkCoachAthleteQuota(
-    coach: UserDocument,
-    options?: { asInvitee?: boolean },
-  ): Promise<void> {
+  private async checkCoachAthleteQuota(coach: UserDocument, options?: { asInvitee?: boolean }): Promise<void> {
     const limit = getCoachAthleteLimit(coach.subscription.plan);
-    const athleteCount = await this.usersRepository.countAthletesByCoachId(
-      coach.id,
-    );
+    const athleteCount = await this.usersRepository.countAthletesByCoachId(coach.id);
 
     if (athleteCount >= limit) {
       throwApiForbidden(
@@ -1033,9 +867,7 @@ export class UsersService {
             reps: item.reps,
             rest: item.rest,
             notes: item.notes,
-            exerciseName: found
-              ? (found.name[locale] ?? found.name.es ?? found.name.en)
-              : item.exerciseId,
+            exerciseName: found ? (found.name[locale] ?? found.name.es ?? found.name.en) : item.exerciseId,
           };
         }),
       })),

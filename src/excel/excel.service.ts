@@ -18,9 +18,7 @@ export class ExcelService {
     data: AthleteTrainingProgramExport,
     locale: ExcelLocale = DEFAULT_EXCEL_LOCALE,
   ): Promise<Buffer | null> {
-    const coachTrainingProgram = [...data.coachTrainingProgram].sort(
-      (a, b) => a.order - b.order,
-    );
+    const coachTrainingProgram = [...data.coachTrainingProgram].sort((a, b) => a.order - b.order);
     if (coachTrainingProgram.length === 0) {
       return null;
     }
@@ -32,18 +30,10 @@ export class ExcelService {
 
     for (const program of coachTrainingProgram) {
       const sheet = workbook.addWorksheet(this.toSheetName(program.name));
-      sheet.addRow([
-        headers.exercise,
-        headers.sets,
-        headers.reps,
-        headers.rest,
-        headers.notes,
-      ]);
+      sheet.addRow([headers.exercise, headers.sets, headers.reps, headers.rest, headers.notes]);
       sheet.getRow(1).font = { bold: true };
 
-      const items = [...program.items].sort(
-        (a, b) => (a.order ?? 0) - (b.order ?? 0),
-      );
+      const items = [...program.items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
       for (const item of items) {
         sheet.addRow([

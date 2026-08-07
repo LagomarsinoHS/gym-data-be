@@ -2,8 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ProgressPhotoPublicDto {
   @ApiProperty({
-    example:
-      'https://res.cloudinary.com/demo/image/upload/v1/progress/user/front.png',
+    example: 'https://res.cloudinary.com/demo/image/upload/v1/progress/user/front.png',
   })
   url: string;
 

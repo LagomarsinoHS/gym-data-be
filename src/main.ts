@@ -12,9 +12,7 @@ async function bootstrap() {
   app.use(morgan('combined'));
 
   app.use((req: Request, _res: Response, next: NextFunction) => {
-    logger.log(
-      `${req.method} ${req.originalUrl} origin=${req.headers.origin ?? 'none'}`,
-    );
+    logger.log(`${req.method} ${req.originalUrl} origin=${req.headers.origin ?? 'none'}`);
     next();
   });
 

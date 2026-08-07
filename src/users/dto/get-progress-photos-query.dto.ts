@@ -9,12 +9,10 @@ export class GetProgressPhotosQueryDto {
   year?: number;
 }
 
-export const getProgressPhotosQuerySchema =
-  Joi.object<GetProgressPhotosQueryDto>({
-    year: Joi.number().integer().min(2000).max(2100).optional(),
-  })
-    .unknown(false)
-    .messages({
-      'object.unknown':
-        '"{{#key}}" is not allowed. Only "year" query param is accepted',
-    });
+export const getProgressPhotosQuerySchema = Joi.object<GetProgressPhotosQueryDto>({
+  year: Joi.number().integer().min(2000).max(2100).optional(),
+})
+  .unknown(false)
+  .messages({
+    'object.unknown': '"{{#key}}" is not allowed. Only "year" query param is accepted',
+  });

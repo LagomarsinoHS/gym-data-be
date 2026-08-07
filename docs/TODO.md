@@ -7,7 +7,7 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 - [x] Auth JWT (`sub` + `role`) + `JwtAuthGuard` + `RolesGuard` / `@Roles(...)`
 - [x] Perfil enriquecido: programs, `subscription`, `coachQuota` (null si no coach)
 - [x] Training program: agregar / quitar / editar pauta
-- [x] Exercises: listado, filtros, labels, random, by id, search bilingüe, recommend (presets + 4 slots)
+- [x] Exercises: listado, filtros, labels, random, by id, search bilingüe, recommend (IA)
 - [x] User: `subscription` (`free` \| `premium` \| `growth` \| `pro`), `role`, `coachId`, `coachTrainingProgram`
 - [x] Coach athlete limits: free 5 / growth 10 / pro 20; enforce en invite + accept
 - [x] Register: `role: athlete | coach` (admin solo DB)
@@ -15,7 +15,7 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 - [x] Coach training program replace + export Excel/ZIP
 - [x] Admin: grant / revoke subscription (`plan` requerido en grant: premium | growth | pro)
 - [x] API error codes estables para invites/cuota (`COACH_ATHLETE_QUOTA_FULL`, etc.)
-- [x] Módulo `openai` (`OpenAiService.recommendWorkout` vía Responses API + prompt entrenador); env opcional `OPENAI_API_KEY` + `OPENAI_MODEL`
+- [x] Módulo `ai` (`AiService` port + `GeminiAiProvider`; `recommendWorkout` / `analyzeProgressPhotos`); env opcional `GEMINI_API_KEY` + `GEMINI_MODEL`
 
 > FE: menú de cuenta (iniciales/foto + dropdown). **Mi perfil** cableado (lectura, foto, editar, baja). **Configuración** aún deshabilitada en FE.
 > La **baja de cuenta** (soft-delete / `deletedAt`) vive en **Mi perfil** (`DELETE /users/me`), no en Configuración.
@@ -83,7 +83,7 @@ Response del GET:
 ### Resto
 
 - [ ] Migrar más excepciones a `ApiErrorCode` (auth, ownership, export…)
-- [x] Recommend IA — `GET /exercises/recommend2` (zone + 1–2 equipment → candidatos slim → OpenAI 4 ejercicios + `note`); `GET /exercises/recommend` queda legado
+- [x] Recommend IA — `GET /exercises/recommend` (zone + 1–2 equipment → candidatos slim → AI 4 ejercicios con `sets`/`reps`/`rest` + `note`)
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
 - [x] **Mi perfil** — `PATCH /users/me` (firstName / lastName / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`

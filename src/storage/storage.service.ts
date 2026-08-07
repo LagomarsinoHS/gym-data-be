@@ -1,10 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  v2 as cloudinary,
-  type UploadApiErrorResponse,
-  type UploadApiResponse,
-} from 'cloudinary';
+import { v2 as cloudinary, type UploadApiErrorResponse, type UploadApiResponse } from 'cloudinary';
 
 export type UploadImageInput = {
   buffer: Buffer;
@@ -34,13 +30,9 @@ export class StorageService {
 
   constructor(private readonly configService: ConfigService) {
     cloudinary.config({
-      cloud_name: this.configService.getOrThrow<string>(
-        'CLOUDINARY_CLOUD_NAME',
-      ),
+      cloud_name: this.configService.getOrThrow<string>('CLOUDINARY_CLOUD_NAME'),
       api_key: this.configService.getOrThrow<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.getOrThrow<string>(
-        'CLOUDINARY_API_SECRET',
-      ),
+      api_secret: this.configService.getOrThrow<string>('CLOUDINARY_API_SECRET'),
       secure: true,
     });
   }
@@ -61,13 +53,8 @@ export class StorageService {
   }
 
   /** Delete one — cloudinary.uploader.destroy(publicId) */
-  async deleteImage(
-    publicId: string,
-    options?: { ignoreNotFound?: boolean },
-  ): Promise<void> {
-    const result = (await cloudinary.uploader.destroy(
-      publicId,
-    )) as DestroyResult;
+  async deleteImage(publicId: string, options?: { ignoreNotFound?: boolean }): Promise<void> {
+    const result = (await cloudinary.uploader.destroy(publicId)) as DestroyResult;
 
     if (result.result === 'not found') {
       if (options?.ignoreNotFound) {
@@ -92,8 +79,7 @@ export class StorageService {
     try {
       await cloudinary.api.delete_folder(folder);
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown folder delete error';
+      const message = error instanceof Error ? error.message : 'Unknown folder delete error';
       this.logger.warn(`Cloudinary delete_folder(${folder}): ${message}`);
     }
   }
@@ -108,10 +94,7 @@ export class StorageService {
           overwrite: input.overwrite ?? false,
           invalidate: input.overwrite ?? false,
         },
-        (
-          error: UploadApiErrorResponse | undefined,
-          result: UploadApiResponse | undefined,
-        ) => {
+        (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
           if (error) {
             reject(new Error(error.message));
             return;

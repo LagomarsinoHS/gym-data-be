@@ -4,7 +4,7 @@ import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
 import { ExcelModule } from '../excel/excel.module';
 import { ExercisesModule } from '../exercises/exercises.module';
 import { HashingModule } from '../common/hashing/hashing.module';
-import { OpenAiModule } from '../openai/openai.module';
+import { AiModule } from '../ai/ai.module';
 import { StorageModule } from '../storage/storage.module';
 import { ZipModule } from '../zip/zip.module';
 import { InvitesRepository } from './repositories/invites.repository';
@@ -25,15 +25,10 @@ import { UsersService } from './users.service';
     ZipModule,
     StorageModule,
     HashingModule,
-    OpenAiModule,
+    AiModule,
   ],
   controllers: [UsersController],
-  providers: [
-    UsersService,
-    UsersRepository,
-    InvitesRepository,
-    PaidSubscriptionGuard,
-  ],
+  providers: [UsersService, UsersRepository, InvitesRepository, PaidSubscriptionGuard],
   exports: [UsersService],
 })
 export class UsersModule {}

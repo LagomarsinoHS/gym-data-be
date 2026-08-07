@@ -9,8 +9,6 @@ export class RemoveTrainingProgramDto {
   exerciseId: string;
 }
 
-export const removeTrainingProgramSchema = Joi.object<RemoveTrainingProgramDto>(
-  {
-    exerciseId: Joi.string().trim().min(1).required(),
-  },
-);
+export const removeTrainingProgramSchema = Joi.object<RemoveTrainingProgramDto>({
+  exerciseId: Joi.string().trim().min(1).required(),
+});

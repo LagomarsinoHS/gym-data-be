@@ -9,8 +9,7 @@ export enum ProgressPhotoSide {
 export class UploadProgressPhotoDto {
   @ApiProperty({
     example: 72.5,
-    description:
-      'Body weight in kg for this progress month (required with the photo(s))',
+    description: 'Body weight in kg for this progress month (required with the photo(s))',
   })
   weightKg: number;
 }

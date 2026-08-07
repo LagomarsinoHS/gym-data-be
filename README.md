@@ -13,7 +13,7 @@ Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive
 - Swagger (`/docs`)
 - ExcelJS / JSZip (export de pautas)
 - Cloudinary (progress photos + profile photo)
-- OpenAI SDK (`openai` module — listo para features IA; opcional al boot)
+- Gemini via `ai` module (port/adapter; opcional al boot)
 - Morgan (logs HTTP)
 
 ## Requisitos
@@ -54,11 +54,11 @@ npm run start:dev
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud | … |
 | `CLOUDINARY_API_KEY` | Cloudinary API key | … |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret | … |
-| `OPENAI_API_KEY` | API key OpenAI (opcional) | `sk-...` |
-| `OPENAI_MODEL` | Modelo por defecto | `gpt-5-mini` |
+| `GEMINI_API_KEY` | API key Gemini (opcional) | `…` |
+| `GEMINI_MODEL` | Modelo por defecto | `gemini-2.0-flash` |
 
 > No subas el `.env`. Está en `.gitignore`.  
-> `OPENAI_*` es opcional: la app arranca sin key; fallan solo las llamadas a `OpenAiService` (`OPENAI_NOT_CONFIGURED`).
+> `GEMINI_*` es opcional: la app arranca sin key; fallan solo las llamadas a `AiService` (`AI_NOT_CONFIGURED`).
 
 ```env
 PORT=3000
@@ -70,8 +70,8 @@ CORS_ORIGINS=http://127.0.0.1:5500,http://localhost:5500
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
-OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5-mini
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.0-flash
 ```
 
 ## Scripts
@@ -90,12 +90,12 @@ npm run test:e2e     # e2e
 | Área | Qué cubre |
 |---|---|
 | Auth | Register / login JWT (`sub` + `role`) |
-| Exercises | Listado, labels, random, by id, recommend (legado) + recommend2 (IA) |
+| Exercises | Listado, labels, random, by id, recommend (IA) |
 | Training program | Add / remove / edit (atleta); replace + export (coach) |
 | Invites | Create, respond, pending, history, athletes + cupos por plan |
 | Progress photos | Upload / delete / GET timeline (self o coach); peso mensual |
 | Perfil | `GET/PATCH /users/me`, foto de perfil, soft-delete (`DELETE /users/me`) |
-| OpenAI | `OpenAiModule` / `OpenAiService.recommendWorkout` (Responses API) — sin HTTP aún; próximo: recommend IA |
+| AI | `AiModule` / `AiService` (Gemini): `recommendWorkout`, `analyzeProgressPhotos` |
 | Admin | Grant / revoke subscription |
 
 Roles: `athlete` | `coach` | `admin`.  
@@ -116,7 +116,7 @@ Cloudinary:
 | `users` | Perfil, training program, invites, athletes, export, progress photos, profile photo, baja |
 | `exercises` | Catálogo, labels, random, recommend |
 | `storage` | Cloudinary: `uploadImage`, `deleteImage`, `deleteFolder` |
-| `openai` | Cliente OpenAI: `isConfigured` / `recommendWorkout` (importar `OpenAiModule` donde se use) |
+| `ai` | Puerto `AiService` + adapter Gemini (`recommendWorkout`, `analyzeProgressPhotos`) |
 | `admin` | Grant / revoke subscription |
 | `excel` · `zip` | Export de planes coach |
 | `database` | Conexión Mongo |
@@ -135,7 +135,7 @@ src/
   database/
   excel/ · zip/
   exercises/
-  openai/         # OpenAI SDK wrapper (sin controller)
+  ai/             # AiService port + Gemini provider
   storage/        # Cloudinary
   users/          # User + Invite + progress/profile photos
   app.module.ts
@@ -170,7 +170,7 @@ CORS_ORIGINS=https://tu-app.vercel.app
 ## Deploy
 
 - NestJS “clásico”: Railway, Render, Fly.io, etc.
-- En el host configurá las mismas variables (`MONGODB_*`, `JWT_*`, `CORS_ORIGINS`, `CLOUDINARY_*`, `OPENAI_*` si usás IA, `PORT`).
+- En el host configurá las mismas variables (`MONGODB_*`, `JWT_*`, `CORS_ORIGINS`, `CLOUDINARY_*`, `GEMINI_*` si usás IA, `PORT`).
 - El frontend suele ir aparte (p. ej. Vercel).
 
 ## Licencia

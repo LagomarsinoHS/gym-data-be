@@ -11,10 +11,7 @@ import {
 } from '../schemas/user.schema';
 import { CreateUserData } from '../types/create-user-data.type';
 import { Role } from '../types/role.enum';
-import {
-  GrantableSubscriptionPlan,
-  SubscriptionPlan,
-} from '../types/subscription-plan.enum';
+import { GrantableSubscriptionPlan, SubscriptionPlan } from '../types/subscription-plan.enum';
 import { recomputeCurrentWeightKg } from '../utils/progress-photo-weight';
 
 /** Active users: soft-delete field must be absent (never stored as null). */
@@ -46,38 +43,22 @@ export class UsersRepository {
 
   findByIds(ids: string[]): Promise<UserDocument[]> {
     if (ids.length === 0) return Promise.resolve([]);
-    return this.userModel
-      .find({ id: { $in: [...new Set(ids)] }, ...NOT_DELETED })
-      .exec();
+    return this.userModel.find({ id: { $in: [...new Set(ids)] }, ...NOT_DELETED }).exec();
   }
 
   findByEmail(email: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ email, ...NOT_DELETED }).exec();
   }
 
-  findAthletesByCoachId(
-    coachId: string,
-    skip: number,
-    limit: number,
-    search?: string,
-  ): Promise<UserDocument[]> {
-    return this.userModel
-      .find(this.buildAthletesByCoachFilter(coachId, search))
-      .skip(skip)
-      .limit(limit)
-      .exec();
+  findAthletesByCoachId(coachId: string, skip: number, limit: number, search?: string): Promise<UserDocument[]> {
+    return this.userModel.find(this.buildAthletesByCoachFilter(coachId, search)).skip(skip).limit(limit).exec();
   }
 
   countAthletesByCoachId(coachId: string, search?: string): Promise<number> {
-    return this.userModel
-      .countDocuments(this.buildAthletesByCoachFilter(coachId, search))
-      .exec();
+    return this.userModel.countDocuments(this.buildAthletesByCoachFilter(coachId, search)).exec();
   }
 
-  findAthletesByCoachIdForExport(
-    coachId: string,
-    athleteIds?: string[],
-  ): Promise<UserDocument[]> {
+  findAthletesByCoachIdForExport(coachId: string, athleteIds?: string[]): Promise<UserDocument[]> {
     const filter: AthletesByCoachFilter & { id?: { $in: string[] } } = {
       ...this.buildAthletesByCoachFilter(coachId),
     };
@@ -104,31 +85,17 @@ export class UsersRepository {
     return safeUser;
   }
 
-  async setCoachTrainingProgram(
-    athleteId: string,
-    coachTrainingProgram: CoachTrainingProgram[],
-  ): Promise<void> {
-    await this.userModel
-      .updateOne(
-        { id: athleteId, ...NOT_DELETED },
-        { $set: { coachTrainingProgram } },
-      )
-      .exec();
+  async setCoachTrainingProgram(athleteId: string, coachTrainingProgram: CoachTrainingProgram[]): Promise<void> {
+    await this.userModel.updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachTrainingProgram } }).exec();
   }
 
   /**
    * Assign coach on accept. Reject only updates the Invite row (no user change).
    */
-  async applyCoachInviteResponse(
-    athleteId: string,
-    accept: boolean,
-    coachId: string,
-  ): Promise<void> {
+  async applyCoachInviteResponse(athleteId: string, accept: boolean, coachId: string): Promise<void> {
     if (!accept) return;
 
-    await this.userModel
-      .updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachId } })
-      .exec();
+    await this.userModel.updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachId } }).exec();
   }
 
   async clearSubscriptionToFree(userId: string): Promise<void> {
@@ -164,36 +131,22 @@ export class UsersRepository {
       .exec();
   }
 
-  async addToTrainingProgram(
-    userId: string,
-    items: Pick<TrainingProgramExercise, 'exerciseId'>[],
-  ): Promise<void> {
+  async addToTrainingProgram(userId: string, items: Pick<TrainingProgramExercise, 'exerciseId'>[]): Promise<void> {
     await this.userModel
-      .updateOne(
-        { id: userId, ...NOT_DELETED },
-        { $push: { trainingProgram: { $each: items, $position: 0 } } },
-      )
+      .updateOne({ id: userId, ...NOT_DELETED }, { $push: { trainingProgram: { $each: items, $position: 0 } } })
       .exec();
   }
 
-  async removeFromTrainingProgram(
-    userId: string,
-    exerciseId: string,
-  ): Promise<void> {
+  async removeFromTrainingProgram(userId: string, exerciseId: string): Promise<void> {
     await this.userModel
-      .updateOne(
-        { id: userId, ...NOT_DELETED },
-        { $pull: { trainingProgram: { exerciseId } } },
-      )
+      .updateOne({ id: userId, ...NOT_DELETED }, { $pull: { trainingProgram: { exerciseId } } })
       .exec();
   }
 
   async updateTrainingProgramExercise(
     userId: string,
     exerciseId: string,
-    patch: Partial<
-      Pick<TrainingProgramExercise, 'sets' | 'reps' | 'rest' | 'notes'>
-    >,
+    patch: Partial<Pick<TrainingProgramExercise, 'sets' | 'reps' | 'rest' | 'notes'>>,
   ): Promise<boolean> {
     const $set: Record<string, string | number> = {};
     if (patch.sets !== undefined) {
@@ -223,26 +176,15 @@ export class UsersRepository {
     return result.matchedCount > 0;
   }
 
-  async setProgressPhotos(
-    userId: string,
-    progressPhotos: ProgressPhotoMonth[],
-  ): Promise<void> {
+  async setProgressPhotos(userId: string, progressPhotos: ProgressPhotoMonth[]): Promise<void> {
     const currentWeightKg = recomputeCurrentWeightKg(progressPhotos);
     await this.userModel
-      .updateOne(
-        { id: userId, ...NOT_DELETED },
-        { $set: { progressPhotos, currentWeightKg } },
-      )
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set: { progressPhotos, currentWeightKg } })
       .exec();
   }
 
-  async setProfilePhoto(
-    userId: string,
-    profilePhoto: ProgressPhoto,
-  ): Promise<void> {
-    await this.userModel
-      .updateOne({ id: userId, ...NOT_DELETED }, { $set: { profilePhoto } })
-      .exec();
+  async setProfilePhoto(userId: string, profilePhoto: ProgressPhoto): Promise<void> {
+    await this.userModel.updateOne({ id: userId, ...NOT_DELETED }, { $set: { profilePhoto } }).exec();
   }
 
   async updateProfileFields(
@@ -254,26 +196,18 @@ export class UsersRepository {
     },
   ): Promise<void> {
     if (Object.keys(patch).length === 0) return;
-    await this.userModel
-      .updateOne({ id: userId, ...NOT_DELETED }, { $set: patch })
-      .exec();
+    await this.userModel.updateOne({ id: userId, ...NOT_DELETED }, { $set: patch }).exec();
   }
 
   async softDeleteById(userId: string): Promise<boolean> {
     const result = await this.userModel
-      .updateOne(
-        { id: userId, ...NOT_DELETED },
-        { $set: { deletedAt: new Date() } },
-      )
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set: { deletedAt: new Date() } })
       .exec();
 
     return result.matchedCount > 0;
   }
 
-  private buildAthletesByCoachFilter(
-    coachId: string,
-    search?: string,
-  ): AthletesByCoachFilter {
+  private buildAthletesByCoachFilter(coachId: string, search?: string): AthletesByCoachFilter {
     const filter: AthletesByCoachFilter = {
       role: Role.Athlete,
       coachId,

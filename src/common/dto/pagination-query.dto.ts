@@ -20,5 +20,4 @@ export const paginationQueryKeys = {
   limit: Joi.number().integer().min(1).max(100).default(50),
 };
 
-export const paginationQuerySchema =
-  Joi.object<PaginationQueryDto>(paginationQueryKeys);
+export const paginationQuerySchema = Joi.object<PaginationQueryDto>(paginationQueryKeys);
