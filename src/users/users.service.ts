@@ -531,7 +531,10 @@ export class UsersService {
     this.validateUploadedImageFile(backFile);
 
     const user = await this.findByIdOrFail(athleteId);
-    const yearMonth = currentYearMonth();
+    const yearMonth = dto.yearMonth?.trim() || currentYearMonth();
+    if (yearMonth > currentYearMonth()) {
+      throw new BadRequestException('"yearMonth" cannot be in the future');
+    }
     const folder = progressPhotoFolder(athleteId, yearMonth);
     const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
 

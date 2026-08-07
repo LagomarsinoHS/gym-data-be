@@ -299,6 +299,11 @@ export class UsersController {
       required: ['weightKg'],
       properties: {
         weightKg: { type: 'number', example: 72.5 },
+        yearMonth: {
+          type: 'string',
+          example: '2026-07',
+          description: 'Optional YYYY-MM (omit = current UTC month; no future)',
+        },
         front: { type: 'string', format: 'binary' },
         back: { type: 'string', format: 'binary' },
       },
@@ -308,7 +313,8 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({ description: 'Requires athlete role' })
   @ApiBadRequestResponse({
-    description: 'Missing weight, missing both photos, or invalid image type',
+    description:
+      'Missing weight, missing both photos, invalid image type, or invalid/future yearMonth',
   })
   @ApiNotFoundResponse({ description: 'User not found' })
   uploadProgressPhoto(
