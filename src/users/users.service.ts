@@ -870,7 +870,10 @@ export class UsersService {
             reps: item.reps,
             rest: item.rest,
             notes: item.notes,
-            exerciseName: found ? (found.name[locale] ?? found.name.es ?? found.name.en) : item.exerciseId,
+            exerciseName: found
+              ? (found.name[locale] ?? found.name.es ?? found.name.en)
+              : item.exerciseId,
+            category: found?.category,
           };
         }),
       })),

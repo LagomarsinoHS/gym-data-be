@@ -7,6 +7,8 @@ export type ExcelTrainingProgramItem = {
   notes?: string;
   /** Display name already resolved from the catalog (e.g. Spanish). */
   exerciseName?: string;
+  /** Catalog category used to group rows (e.g. chest, back). */
+  category?: string;
 };
 
 export type ExcelCoachTrainingProgram = {
