@@ -13,6 +13,7 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 - [x] Register: `role: athlete | coach` (admin solo DB)
 - [x] Colección **`invites`** + flujo coach/athlete (create, respond, pending, history, athletes)
 - [x] Coach training program replace + export Excel/ZIP
+- [x] Export PDF (`format: pdf` on same export endpoint; módulo `pdf` + pdfmake)
 - [x] Admin: grant / revoke subscription (`plan` requerido en grant: premium | growth | pro)
 - [x] API error codes estables para invites/cuota (`COACH_ATHLETE_QUOTA_FULL`, etc.)
 - [x] Módulo `ai` (`AiService` port + `GeminiAiProvider`; `recommendWorkout` / `analyzeProgressPhotos`); env opcional `GEMINI_API_KEY` + `GEMINI_MODEL`
@@ -79,6 +80,15 @@ Response del GET:
 ```
 
 > `publicId` se guarda en Mongo para delete/replace en el back; el GET puede omitirlo y devolver solo lo que pinta el front.
+
+### Nutrición — pauta alimenticia (coach → atleta)
+
+> Detalle de producto / UI en FE `docs/TODO.md` § Nutrición.
+
+- [ ] Modelo de pauta nutricional por atleta (texto y/o archivo; definir versión/historial)
+- [ ] Coach asignado: create/update; atleta (self) + coach: get; authz como `coachTrainingProgram`
+- [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
+- [ ] Doc en `API-ENDPOINTS.md`
 
 ### Resto
 

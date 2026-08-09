@@ -509,26 +509,36 @@ Pending invites **no** cuentan para la cuota; solo athletes con `coachId` asigna
 | | |
 |---|---|
 | Auth | JWT + **coach** |
-| Respuesta | `200` — archivo binario (`.xlsx` o `.zip`) |
+| Respuesta | `200` — archivo binario (`.xlsx`, `.pdf` o `.zip`) |
 
 **Body**
 
 | Campo | | Notas |
 |---|---|---|
 | `athleteIds` | Obligatorio | array de UUIDs; **`[]` = exportar todos** los alumnos del coach |
-| `locale` | Opcional | `es` \| `en` (default: `es`) |
+| `locale` | Opcional | `es` \| `en` (default: `es`) — headers y nombres de ejercicios |
+| `format` | Opcional | `xlsx` \| `pdf` (default: `xlsx`) |
+
+**Comportamiento**
+
+- Un alumno → un `.xlsx` o `.pdf`
+- Varios alumnos → `.zip` con un archivo por alumno
+- Alumnos sin `coachTrainingProgram` se omiten
+- Excel/PDF: una hoja/documento por atleta; sesiones apiladas con gap; bloques por categoría del catálogo (colores fijos)
 
 ```json
 {
   "athleteIds": ["a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45"],
-  "locale": "es"
+  "locale": "es",
+  "format": "pdf"
 }
 ```
 
 ```json
 {
   "athleteIds": [],
-  "locale": "en"
+  "locale": "en",
+  "format": "xlsx"
 }
 ```
 

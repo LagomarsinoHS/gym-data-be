@@ -16,7 +16,10 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
+import {
+  FileFieldsInterceptor,
+  FileInterceptor,
+} from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -46,30 +49,69 @@ import {
   AnalyzeProgressPhotosResponseDto,
   analyzeProgressPhotosSchema,
 } from './dto/analyze-progress-photos.dto';
-import { AddTrainingProgramDto, addTrainingProgramSchema } from './dto/add-training-program.dto';
-import { CreateCoachInviteDto, createCoachInviteSchema } from './dto/create-coach-invite.dto';
+import {
+  AddTrainingProgramDto,
+  addTrainingProgramSchema,
+} from './dto/add-training-program.dto';
+import {
+  CreateCoachInviteDto,
+  createCoachInviteSchema,
+} from './dto/create-coach-invite.dto';
 import {
   ExportCoachTrainingProgramDto,
   exportCoachTrainingProgramSchema,
 } from './dto/export-coach-training-program.dto';
-import { GetCoachAthletesQueryDto, getCoachAthletesQuerySchema } from './dto/get-coach-athletes-query.dto';
-import { GetCoachInvitesQueryDto, getCoachInvitesQuerySchema } from './dto/get-coach-invites-query.dto';
+import {
+  GetCoachAthletesQueryDto,
+  getCoachAthletesQuerySchema,
+} from './dto/get-coach-athletes-query.dto';
+import {
+  GetCoachInvitesQueryDto,
+  getCoachInvitesQuerySchema,
+} from './dto/get-coach-invites-query.dto';
 import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
-import { MeResponseDto, PendingCoachInviteResponseDto } from './dto/me-response.dto';
+import {
+  MeResponseDto,
+  PendingCoachInviteResponseDto,
+} from './dto/me-response.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
-import { RespondCoachInviteDto, respondCoachInviteSchema } from './dto/respond-coach-invite.dto';
-import { RemoveTrainingProgramDto, removeTrainingProgramSchema } from './dto/remove-training-program.dto';
-import { SetCoachTrainingProgramDto, setCoachTrainingProgramSchema } from './dto/set-coach-training-program.dto';
+import {
+  RespondCoachInviteDto,
+  respondCoachInviteSchema,
+} from './dto/respond-coach-invite.dto';
+import {
+  RemoveTrainingProgramDto,
+  removeTrainingProgramSchema,
+} from './dto/remove-training-program.dto';
+import {
+  SetCoachTrainingProgramDto,
+  setCoachTrainingProgramSchema,
+} from './dto/set-coach-training-program.dto';
 import {
   UpdateTrainingProgramExerciseDto,
   updateTrainingProgramExerciseSchema,
 } from './dto/update-training-program-exercise.dto';
 import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
-import { UploadProgressPhotoDto, uploadProgressPhotoSchema } from './dto/upload-progress-photo.dto';
-import { DeleteProgressPhotoDto, deleteProgressPhotoSchema } from './dto/delete-progress-photo.dto';
-import { DeleteAccountDto, deleteAccountSchema } from './dto/delete-account.dto';
-import { UpdateProfileDto, updateProfileSchema } from './dto/update-profile.dto';
-import { GetProgressPhotosQueryDto, getProgressPhotosQuerySchema } from './dto/get-progress-photos-query.dto';
+import {
+  UploadProgressPhotoDto,
+  uploadProgressPhotoSchema,
+} from './dto/upload-progress-photo.dto';
+import {
+  DeleteProgressPhotoDto,
+  deleteProgressPhotoSchema,
+} from './dto/delete-progress-photo.dto';
+import {
+  DeleteAccountDto,
+  deleteAccountSchema,
+} from './dto/delete-account.dto';
+import {
+  UpdateProfileDto,
+  updateProfileSchema,
+} from './dto/update-profile.dto';
+import {
+  GetProgressPhotosQueryDto,
+  getProgressPhotosQuerySchema,
+} from './dto/get-progress-photos-query.dto';
 import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
 import { Role } from './types/role.enum';
 import { UsersService } from './users.service';
@@ -101,7 +143,9 @@ export class UsersController {
   @ApiOkResponse({ type: PendingCoachInviteResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({ description: 'Requires athlete role' })
-  getPendingCoachInvite(@CurrentUser() user: AuthenticatedUser): Promise<PendingCoachInviteResponseDto> {
+  getPendingCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PendingCoachInviteResponseDto> {
     return this.usersService.getPendingCoachInvite(user.userId);
   }
 
@@ -133,7 +177,8 @@ export class UsersController {
   @Roles(Role.Coach)
   @ApiOperation({
     summary: 'List invite history for the authenticated coach',
-    description: 'Full invite history (pending, accepted, rejected, cancelled). Optional status filter. Newest first.',
+    description:
+      'Full invite history (pending, accepted, rejected, cancelled). Optional status filter. Newest first.',
   })
   @ApiOkResponse({ type: PaginatedResponse })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
@@ -143,7 +188,12 @@ export class UsersController {
     @Query(new JoiValidationPipe(getCoachInvitesQuerySchema))
     query: GetCoachInvitesQueryDto,
   ): Promise<PaginatedResponse<CoachInviteListItemDto>> {
-    const { data, total } = await this.usersService.getCoachInvites(user.userId, query.page, query.limit, query.status);
+    const { data, total } = await this.usersService.getCoachInvites(
+      user.userId,
+      query.page,
+      query.limit,
+      query.status,
+    );
 
     return new PaginatedResponse(data, query.page, query.limit, total);
   }
@@ -230,7 +280,8 @@ export class UsersController {
   @ApiOkResponse({ type: MeResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({
-    description: 'Requires athlete role, or the inviting coach has reached their athlete limit',
+    description:
+      'Requires athlete role, or the inviting coach has reached their athlete limit',
   })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiConflictResponse({ description: 'No pending coach invitation' })
@@ -330,16 +381,21 @@ export class UsersController {
   @Post('coach/training-program/export')
   @Roles(Role.Coach)
   @ApiOperation({
-    summary: 'Export coach training programs as Excel (or ZIP)',
+    summary: 'Export coach training programs as Excel or PDF (or ZIP)',
     description:
-      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. One file → .xlsx; multiple → .zip. Athletes without a coachTrainingProgram are skipped.',
+      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. format: xlsx (default) or pdf. One file → .xlsx/.pdf; multiple → .zip. Athletes without a coachTrainingProgram are skipped.',
   })
   @ApiBody({ type: ExportCoachTrainingProgramDto })
-  @ApiProduces('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip')
-  @ApiOkResponse({ description: 'Excel or ZIP file download' })
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+    'application/zip',
+  )
+  @ApiOkResponse({ description: 'Excel, PDF, or ZIP file download' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({
-    description: 'Requires coach role, or one or more athletes are not assigned to this coach',
+    description:
+      'Requires coach role, or one or more athletes are not assigned to this coach',
   })
   @ApiNotFoundResponse({ description: 'No athletes or programs to export' })
   async exportCoachTrainingPrograms(
@@ -347,7 +403,10 @@ export class UsersController {
     @Body(new JoiValidationPipe(exportCoachTrainingProgramSchema))
     dto: ExportCoachTrainingProgramDto,
   ): Promise<StreamableFile> {
-    const file = await this.usersService.exportCoachTrainingPrograms(user.userId, dto);
+    const file = await this.usersService.exportCoachTrainingPrograms(
+      user.userId,
+      dto,
+    );
 
     return new StreamableFile(file.buffer, {
       type: file.contentType,
@@ -360,7 +419,8 @@ export class UsersController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Invite an athlete by email',
-    description: 'Creates a pending Invite for the athlete with the authenticated coach id.',
+    description:
+      'Creates a pending Invite for the athlete with the authenticated coach id.',
   })
   @ApiBody({ type: CreateCoachInviteDto })
   @ApiCreatedResponse({ type: OkResponseDto })
@@ -383,7 +443,8 @@ export class UsersController {
   @Post('training-program')
   @ApiOperation({
     summary: 'Add exercises to the authenticated user training program',
-    description: 'Prepends one or more catalog exercises (by business id). Skips duplicates. User id comes from JWT.',
+    description:
+      'Prepends one or more catalog exercises (by business id). Skips duplicates. User id comes from JWT.',
   })
   @ApiBody({ type: AddTrainingProgramDto })
   @ApiOkResponse({ type: MeResponseDto })
@@ -410,7 +471,8 @@ export class UsersController {
   @ApiOkResponse({ type: MeResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiBadRequestResponse({
-    description: 'No fields, invalid password payload, or incorrect current password',
+    description:
+      'No fields, invalid password payload, or incorrect current password',
   })
   @ApiNotFoundResponse({ description: 'User not found' })
   updateProfile(
@@ -439,7 +501,8 @@ export class UsersController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiNotFoundResponse({ description: 'Athlete not found' })
   @ApiForbiddenResponse({
-    description: 'Requires coach role, or athlete is not assigned to this coach',
+    description:
+      'Requires coach role, or athlete is not assigned to this coach',
   })
   setCoachTrainingProgram(
     @CurrentUser() user: AuthenticatedUser,
@@ -447,7 +510,11 @@ export class UsersController {
     @Body(new JoiValidationPipe(setCoachTrainingProgramSchema))
     dto: SetCoachTrainingProgramDto,
   ): Promise<MeResponseDto> {
-    return this.usersService.setCoachTrainingProgram(user.userId, athleteId, dto);
+    return this.usersService.setCoachTrainingProgram(
+      user.userId,
+      athleteId,
+      dto,
+    );
   }
 
   @Put('training-program/remove')
@@ -465,13 +532,17 @@ export class UsersController {
     @Body(new JoiValidationPipe(removeTrainingProgramSchema))
     dto: RemoveTrainingProgramDto,
   ): Promise<MeResponseDto> {
-    return this.usersService.removeFromTrainingProgram(user.userId, dto.exerciseId);
+    return this.usersService.removeFromTrainingProgram(
+      user.userId,
+      dto.exerciseId,
+    );
   }
 
   @Put('training-program/:exerciseId')
   @ApiOperation({
     summary: 'Update an exercise in the authenticated user training program',
-    description: 'Updates sets, reps, rest and/or notes for one item. User id comes from JWT.',
+    description:
+      'Updates sets, reps, rest and/or notes for one item. User id comes from JWT.',
   })
   @ApiParam({ name: 'exerciseId', example: '0001' })
   @ApiBody({ type: UpdateTrainingProgramExerciseDto })
@@ -486,7 +557,11 @@ export class UsersController {
     @Body(new JoiValidationPipe(updateTrainingProgramExerciseSchema))
     dto: UpdateTrainingProgramExerciseDto,
   ): Promise<MeResponseDto> {
-    return this.usersService.updateTrainingProgramExercise(user.userId, exerciseId, dto);
+    return this.usersService.updateTrainingProgramExercise(
+      user.userId,
+      exerciseId,
+      dto,
+    );
   }
 
   // --- DELETE ---

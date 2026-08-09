@@ -11,7 +11,7 @@ Consume MongoDB Atlas. El front (estáticos, GIFs e imágenes de catálogo) vive
 - Auth: JWT (Passport) + Argon2
 - Validación: Joi
 - Swagger (`/docs`)
-- ExcelJS / JSZip (export de pautas)
+- ExcelJS / JSZip / pdfmake (export de pautas Excel, PDF y ZIP)
 - Cloudinary (progress photos + profile photo)
 - Gemini via `ai` module (port/adapter; opcional al boot)
 - Morgan (logs HTTP)
@@ -91,7 +91,7 @@ npm run test:e2e     # e2e
 |---|---|
 | Auth | Register / login JWT (`sub` + `role`) |
 | Exercises | Listado, labels, random, by id, recommend (IA) |
-| Training program | Add / remove / edit (atleta); replace + export (coach) |
+| Training program | Add / remove / edit (atleta); replace + export Excel/PDF (coach) |
 | Invites | Create, respond, pending, history, athletes + cupos por plan |
 | Progress photos | Upload / delete / GET timeline (self o coach); peso mensual |
 | Perfil | `GET/PATCH /users/me`, foto de perfil, soft-delete (`DELETE /users/me`) |
@@ -118,7 +118,7 @@ Cloudinary:
 | `storage` | Cloudinary: `uploadImage`, `deleteImage`, `deleteFolder` |
 | `ai` | Puerto `AiService` + adapter Gemini (`recommendWorkout`, `analyzeProgressPhotos`) |
 | `admin` | Grant / revoke subscription |
-| `excel` · `zip` | Export de planes coach |
+| `excel` · `pdf` · `zip` | Export de planes coach (Excel, PDF, ZIP multi-alumno) |
 | `database` | Conexión Mongo |
 | `common` | Pipes Joi, hashing, error codes HTTP |
 
@@ -133,7 +133,7 @@ src/
   common/         # dto, pipes, hashing, errors
   config/         # validación de env
   database/
-  excel/ · zip/
+  excel/ · pdf/ · zip/
   exercises/
   ai/             # AiService port + Gemini provider
   storage/        # Cloudinary

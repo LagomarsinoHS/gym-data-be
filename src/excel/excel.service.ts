@@ -110,7 +110,7 @@ export class ExcelService {
     let longest = headerLabel.length;
     for (const program of programs) {
       for (const item of program.items ?? []) {
-        const name = item.exerciseName ?? item.exerciseId ?? '';
+        const name = item.exerciseName ?? '';
         if (name.length > longest) longest = name.length;
       }
     }

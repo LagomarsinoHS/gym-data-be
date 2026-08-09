@@ -6,6 +6,7 @@ import { ExercisesModule } from '../exercises/exercises.module';
 import { HashingModule } from '../common/hashing/hashing.module';
 import { AiModule } from '../ai/ai.module';
 import { StorageModule } from '../storage/storage.module';
+import { PdfModule } from '../pdf/pdf.module';
 import { ZipModule } from '../zip/zip.module';
 import { InvitesRepository } from './repositories/invites.repository';
 import { UsersRepository } from './repositories/users.repository';
@@ -22,6 +23,7 @@ import { UsersService } from './users.service';
     ]),
     forwardRef(() => ExercisesModule),
     ExcelModule,
+    PdfModule,
     ZipModule,
     StorageModule,
     HashingModule,

@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { AiService } from '../ai/ai.service';
 import { AI_SERVICE } from '../ai/ai.tokens';
 import { ExerciseLabelsResponseDto } from './dto/exercise-labels-response.dto';
@@ -18,7 +23,11 @@ export class ExercisesService {
     @Inject(AI_SERVICE) private readonly aiService: AiService,
   ) {}
 
-  async getExercises({ page, limit, ...filters }: GetExercisesQueryDto): Promise<{
+  async getExercises({
+    page,
+    limit,
+    ...filters
+  }: GetExercisesQueryDto): Promise<{
     data: ExerciseDocument[];
     total: number;
   }> {
@@ -59,8 +68,13 @@ export class ExercisesService {
   /**
    * AI recommend: zone + 1–2 equipment → slim candidates → AI picks 4 + note.
    */
-  async recommend(query: RecommendExercisesQueryDto): Promise<RecommendExercisesResponseDto> {
-    const exerciseList = await this.exercisesRepository.findForRecommend(query.zone, query.equipment);
+  async recommend(
+    query: RecommendExercisesQueryDto,
+  ): Promise<RecommendExercisesResponseDto> {
+    const exerciseList = await this.exercisesRepository.findForRecommend(
+      query.zone,
+      query.equipment,
+    );
 
     if (exerciseList.length < 4) {
       throw new BadRequestException(
@@ -69,7 +83,9 @@ export class ExercisesService {
     }
 
     const locale = query.locale;
-    const byId = new Map(exerciseList.map((exercise) => [exercise.id, exercise]));
+    const byId = new Map(
+      exerciseList.map((exercise) => [exercise.id, exercise]),
+    );
     const candidates = exerciseList.map((row) => ({
       id: row.id,
       name: locale === 'en' ? row.name?.en : row.name?.es,
@@ -84,29 +100,33 @@ export class ExercisesService {
       candidates,
     });
 
-    const exercises: RecommendExerciseDto[] = detailedExercises.flatMap((ex) => {
-      const exercise = byId.get(ex.id);
-      if (!exercise) {
-        return [];
-      }
-      return [
-        {
-          id: exercise.id,
-          name: exercise.name,
-          image: exercise.image,
-          gif_url: exercise.gif_url,
-          category: exercise.category,
-          equipment: exercise.equipment,
-          target: exercise.target,
-          sets: ex.sets,
-          reps: ex.reps,
-          rest: ex.rest,
-        },
-      ];
-    });
+    const exercises: RecommendExerciseDto[] = detailedExercises.flatMap(
+      (ex) => {
+        const exercise = byId.get(ex.id);
+        if (!exercise) {
+          return [];
+        }
+        return [
+          {
+            id: exercise.id,
+            name: exercise.name,
+            image: exercise.image,
+            gif_url: exercise.gif_url,
+            category: exercise.category,
+            equipment: exercise.equipment,
+            target: exercise.target,
+            sets: ex.sets,
+            reps: ex.reps,
+            rest: ex.rest,
+          },
+        ];
+      },
+    );
 
     if (exercises.length !== 4) {
-      throw new BadRequestException('Could not resolve the 4 recommended exercises from the catalog');
+      throw new BadRequestException(
+        'Could not resolve the 4 recommended exercises from the catalog',
+      );
     }
 
     return {

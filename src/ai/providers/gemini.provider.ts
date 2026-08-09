@@ -105,7 +105,7 @@ export class GeminiAiProvider implements AiService {
 
   async recommendWorkout(input: RecommendWorkoutInput): Promise<RecommendWorkoutResult> {
     // TEMP: mock while free-tier Gemini quota is exhausted — remove when quota resets.
-    const mockPick = input.candidates.slice(0, 4);
+ /*    const mockPick = input.candidates.slice(0, 4);
     if (mockPick.length === 4) {
       this.logger.warn('recommendWorkout: returning mock response (Gemini quota bypass)');
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -122,7 +122,7 @@ export class GeminiAiProvider implements AiService {
             : 'Esta rutina fue seleccionada priorizando el desarrollo global del cuádriceps mediante una progresión que va de mayor a menor demanda neurológica y estabilidad asistida. Comenzamos con la Sentadilla Hack para aplicar máxima tensión mecánica en la zona de mayor estiramiento con total seguridad espinal. Continuamos con la Prensa de Piernas para acumular volumen de trabajo pesado sin fatiga lumbar, seguimos con la Sentadilla Búlgara para corregir asimetrías y enfatizar el trabajo unilateral, y finalizamos con las Extensiones de Cuádriceps para aislar el recto femoral en su posición acortada.\n\nAsegúrate de descender de forma controlada en 2 a 3 segundos en cada repetición, manteniendo el talón firme sobre la plataforma para transferir la fuerza de forma eficiente. En los ejercicios multiarticulares profundiza hasta donde la movilidad de tu tobillo lo permita sin guiño pélvico, y en las extensiones finales haz una pausa de 1 segundo en el punto de máxima contracción para acentuar el trabajo analítico.',
       };
     }
-
+ */
     try {
       const response = await this.client.models.generateContent({
         model: this.model,

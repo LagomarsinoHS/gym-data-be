@@ -42,7 +42,11 @@ import {
 import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
-import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
+import {
+  DEFAULT_EXPORT_FORMAT,
+  ExportCoachTrainingProgramDto,
+  type ExportCoachTrainingProgramFormat,
+} from './dto/export-coach-training-program.dto';
 import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
@@ -60,6 +64,7 @@ import {
 } from '../excel/constants/excel-training-program-headers';
 import { ExcelService } from '../excel/excel.service';
 import type { AthleteTrainingProgramExport } from '../excel/types/athlete-training-program-export.type';
+import { PdfService } from '../pdf/pdf.service';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
 import type { AiService } from '../ai/ai.service';
@@ -88,6 +93,11 @@ const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'i
 /** Typed string until IDE TS service picks up ApiErrorCode.CurrentPasswordIncorrect. */
 const CURRENT_PASSWORD_INCORRECT: ApiErrorCode = 'CURRENT_PASSWORD_INCORRECT' as ApiErrorCode;
 
+const EXPORT_CONTENT_TYPES: Record<ExportCoachTrainingProgramFormat, string> = {
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pdf: 'application/pdf',
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -96,6 +106,7 @@ export class UsersService {
     @Inject(forwardRef(() => ExercisesService))
     private readonly exercisesService: ExercisesService,
     private readonly excelService: ExcelService,
+    private readonly pdfService: PdfService,
     private readonly zipService: ZipService,
     private readonly storageService: StorageService,
     private readonly hashingService: HashingService,
@@ -380,6 +391,7 @@ export class UsersService {
     dto: ExportCoachTrainingProgramDto,
   ): Promise<CoachTrainingProgramExportFile> {
     const locale = dto.locale ?? DEFAULT_EXCEL_LOCALE;
+    const format = dto.format ?? DEFAULT_EXPORT_FORMAT;
     const athleteIds = [...new Set(dto.athleteIds)];
     const athletes = await this.usersRepository.findAthletesByCoachIdForExport(coachId, athleteIds);
 
@@ -404,13 +416,23 @@ export class UsersService {
 
     for (const athlete of athletes) {
       const exportData = this.toAthleteTrainingProgramExport(athlete, byId, locale);
-      const buffer = await this.excelService.buildAthleteTrainingProgramWorkbook(exportData, locale);
+      const buffer =
+        format === 'pdf'
+          ? await this.pdfService.buildAthleteTrainingProgramPdf(exportData, locale)
+          : await this.excelService.buildAthleteTrainingProgramWorkbook(
+              exportData,
+              locale,
+            );
       if (!buffer) {
         continue;
       }
 
       files.push({
-        filename: this.toExportFilename(athlete.firstName, athlete.lastName),
+        filename: this.toExportFilename(
+          athlete.firstName,
+          athlete.lastName,
+          format,
+        ),
         buffer,
       });
     }
@@ -422,7 +444,7 @@ export class UsersService {
     return files.length === 1
       ? {
           buffer: files[0].buffer,
-          contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          contentType: EXPORT_CONTENT_TYPES[format],
           filename: files[0].filename,
         }
       : {
@@ -880,7 +902,11 @@ export class UsersService {
     };
   }
 
-  private toExportFilename(firstName: string, lastName: string): string {
+  private toExportFilename(
+    firstName: string,
+    lastName: string,
+    format: ExportCoachTrainingProgramFormat = 'xlsx',
+  ): string {
     const base = `${firstName}-${lastName}`
       .normalize('NFD')
       .replace(/\p{M}/gu, '')
@@ -888,6 +914,6 @@ export class UsersService {
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '');
 
-    return `${base}.xlsx`;
+    return `${base}.${format}`;
   }
 }
