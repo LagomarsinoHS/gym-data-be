@@ -83,6 +83,7 @@ npm run build        # compila a dist/
 npm run lint         # eslint
 npm run test         # unit tests
 npm run test:e2e     # e2e
+npm run migrate:user-profile  # one-off: flatten firstName/… → profile.*
 ```
 
 ## Capacidades
@@ -94,7 +95,7 @@ npm run test:e2e     # e2e
 | Training program | Add / remove / edit (atleta); replace + export Excel/PDF (coach) |
 | Invites | Create, respond, pending, history, athletes + cupos por plan |
 | Progress photos | Upload / delete / GET timeline (self o coach); peso mensual |
-| Perfil | `GET/PATCH /users/me`, foto de perfil, soft-delete (`DELETE /users/me`) |
+| Perfil | `GET/PATCH /users/me` con `profile` (`firstName`, `lastName`, `heightCm`, `sex`, `birthDate`) + `goal` top-level; foto; soft-delete |
 | AI | `AiModule` / `AiService` (Gemini): `recommendWorkout`, `analyzeProgressPhotos` |
 | Admin | Grant / revoke subscription |
 
