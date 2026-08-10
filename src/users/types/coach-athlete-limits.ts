@@ -1,7 +1,8 @@
 import { SubscriptionPlan } from './subscription-plan.enum';
 
 /** Coach plans only. Athletes use `free` | `premium`. */
-export type CoachSubscriptionPlan = SubscriptionPlan.Free | SubscriptionPlan.Growth | SubscriptionPlan.Pro;
+export type CoachSubscriptionPlan =
+  SubscriptionPlan.Free | SubscriptionPlan.Growth | SubscriptionPlan.Pro;
 
 /** Max assigned athletes (coachId set) per coach plan. */
 export const COACH_ATHLETE_LIMITS: Record<CoachSubscriptionPlan, number> = {

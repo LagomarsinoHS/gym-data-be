@@ -24,7 +24,8 @@ export type AnalyzeProgressSubtitleBlock = {
   text: string;
 };
 
-export type AnalyzeProgressBlock = AnalyzeProgressParagraphBlock | AnalyzeProgressSubtitleBlock;
+export type AnalyzeProgressBlock =
+  AnalyzeProgressParagraphBlock | AnalyzeProgressSubtitleBlock;
 
 export type AnalyzeProgressSection = {
   title: string;

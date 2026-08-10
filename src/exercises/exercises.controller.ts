@@ -13,7 +13,10 @@ import {
 import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
 import { ExerciseLabelsResponseDto } from './dto/exercise-labels-response.dto';
-import { GetExercisesQueryDto, getExercisesQuerySchema } from './dto/get-exercises-query.dto';
+import {
+  GetExercisesQueryDto,
+  getExercisesQuerySchema,
+} from './dto/get-exercises-query.dto';
 import {
   RecommendExercisesQueryDto,
   RecommendExercisesResponseDto,

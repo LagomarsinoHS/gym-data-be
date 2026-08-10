@@ -3,7 +3,8 @@ import * as Joi from 'joi';
 
 export type AnalyzeProgressPhotosLocale = 'es' | 'en';
 
-export const DEFAULT_ANALYZE_PROGRESS_LOCALE: AnalyzeProgressPhotosLocale = 'es';
+export const DEFAULT_ANALYZE_PROGRESS_LOCALE: AnalyzeProgressPhotosLocale =
+  'es';
 
 const YEAR_MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -38,7 +39,9 @@ export class AnalyzeProgressSubtitleBlockDto {
   @ApiProperty({ example: 'Desarrollo del pecho' })
   title: string;
 
-  @ApiProperty({ example: 'Se observa mayor volumen en la porción clavicular…' })
+  @ApiProperty({
+    example: 'Se observa mayor volumen en la porción clavicular…',
+  })
   text: string;
 }
 
@@ -56,7 +59,9 @@ export class AnalyzeProgressSectionDto {
       ],
     },
   })
-  blocks: Array<AnalyzeProgressParagraphBlockDto | AnalyzeProgressSubtitleBlockDto>;
+  blocks: Array<
+    AnalyzeProgressParagraphBlockDto | AnalyzeProgressSubtitleBlockDto
+  >;
 }
 
 export class AnalyzeProgressPhotosResponseDto {
@@ -67,15 +72,20 @@ export class AnalyzeProgressPhotosResponseDto {
   sections: AnalyzeProgressSectionDto[];
 }
 
-export const analyzeProgressPhotosSchema = Joi.object<AnalyzeProgressPhotosDto>({
-  yearMonths: Joi.array()
-    .items(Joi.string().trim().pattern(YEAR_MONTH_PATTERN).required())
-    .length(2)
-    .unique()
-    .required()
-    .messages({
-      'array.length': 'yearMonths must contain exactly 2 months',
-      'array.unique': 'yearMonths must be two distinct months',
-    }),
-  locale: Joi.string().valid('es', 'en').default(DEFAULT_ANALYZE_PROGRESS_LOCALE).optional(),
-});
+export const analyzeProgressPhotosSchema = Joi.object<AnalyzeProgressPhotosDto>(
+  {
+    yearMonths: Joi.array()
+      .items(Joi.string().trim().pattern(YEAR_MONTH_PATTERN).required())
+      .length(2)
+      .unique()
+      .required()
+      .messages({
+        'array.length': 'yearMonths must contain exactly 2 months',
+        'array.unique': 'yearMonths must be two distinct months',
+      }),
+    locale: Joi.string()
+      .valid('es', 'en')
+      .default(DEFAULT_ANALYZE_PROGRESS_LOCALE)
+      .optional(),
+  },
+);

@@ -30,7 +30,12 @@ import { UsersService } from './users.service';
     AiModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, UsersRepository, InvitesRepository, PaidSubscriptionGuard],
+  providers: [
+    UsersService,
+    UsersRepository,
+    InvitesRepository,
+    PaidSubscriptionGuard,
+  ],
   exports: [UsersService],
 })
 export class UsersModule {}

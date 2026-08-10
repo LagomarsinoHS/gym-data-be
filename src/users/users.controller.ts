@@ -429,7 +429,8 @@ export class UsersController {
     description: 'Requires coach role, or athlete limit reached for plan',
   })
   @ApiConflictResponse({
-    description: 'Pending invite already exists for that email, or email belongs to a non-athlete account',
+    description:
+      'Pending invite already exists for that email, or email belongs to a non-athlete account',
   })
   createCoachInvite(
     @CurrentUser() user: AuthenticatedUser,

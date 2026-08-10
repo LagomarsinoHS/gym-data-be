@@ -15,9 +15,10 @@ export class UpdateTrainingProgramExerciseDto {
   notes?: string;
 }
 
-export const updateTrainingProgramExerciseSchema = Joi.object<UpdateTrainingProgramExerciseDto>({
-  sets: Joi.number().integer().min(1).optional(),
-  reps: Joi.string().trim().min(1).optional(),
-  rest: Joi.number().integer().min(0).optional(),
-  notes: Joi.string().trim().allow('').optional(),
-}).or('sets', 'reps', 'rest', 'notes');
+export const updateTrainingProgramExerciseSchema =
+  Joi.object<UpdateTrainingProgramExerciseDto>({
+    sets: Joi.number().integer().min(1).optional(),
+    reps: Joi.string().trim().min(1).optional(),
+    rest: Joi.number().integer().min(0).optional(),
+    notes: Joi.string().trim().allow('').optional(),
+  }).or('sets', 'reps', 'rest', 'notes');

@@ -16,7 +16,8 @@ export class CoachInviteListItemDto {
   @ApiPropertyOptional({
     example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
     nullable: true,
-    description: 'Null while the invite is pending and the athlete has not registered yet',
+    description:
+      'Null while the invite is pending and the athlete has not registered yet',
   })
   athleteId: string | null;
 

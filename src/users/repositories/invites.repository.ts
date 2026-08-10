@@ -27,7 +27,10 @@ export class InvitesRepository {
   }
 
   findPendingByCoachId(coachId: string): Promise<InviteDocument[]> {
-    return this.inviteModel.find({ coachId, status: InviteStatus.Pending }).sort({ invitedAt: -1 }).exec();
+    return this.inviteModel
+      .find({ coachId, status: InviteStatus.Pending })
+      .sort({ invitedAt: -1 })
+      .exec();
   }
 
   async findByCoachId(
@@ -40,7 +43,12 @@ export class InvitesRepository {
     if (status) filter.status = status;
 
     const [invites, total] = await Promise.all([
-      this.inviteModel.find(filter).sort({ invitedAt: -1 }).skip(skip).limit(limit).exec(),
+      this.inviteModel
+        .find(filter)
+        .sort({ invitedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
       this.inviteModel.countDocuments(filter).exec(),
     ]);
 
@@ -48,17 +56,31 @@ export class InvitesRepository {
   }
 
   findPendingByAthleteId(athleteId: string): Promise<InviteDocument | null> {
-    return this.inviteModel.findOne({ athleteId, status: InviteStatus.Pending }).exec();
+    return this.inviteModel
+      .findOne({ athleteId, status: InviteStatus.Pending })
+      .exec();
   }
 
   findPendingByEmail(email: string): Promise<InviteDocument | null> {
-    return this.inviteModel.findOne({ email: email.toLowerCase().trim(), status: InviteStatus.Pending }).exec();
+    return this.inviteModel
+      .findOne({
+        email: email.toLowerCase().trim(),
+        status: InviteStatus.Pending,
+      })
+      .exec();
   }
 
-  async linkAthleteIdByEmail(email: string, athleteId: string): Promise<number> {
+  async linkAthleteIdByEmail(
+    email: string,
+    athleteId: string,
+  ): Promise<number> {
     const result = await this.inviteModel
       .updateMany(
-        { email: email.toLowerCase().trim(), status: InviteStatus.Pending, athleteId: null },
+        {
+          email: email.toLowerCase().trim(),
+          status: InviteStatus.Pending,
+          athleteId: null,
+        },
         { $set: { athleteId } },
       )
       .exec();
@@ -87,7 +109,11 @@ export class InvitesRepository {
     respondedAt: Date = new Date(),
   ): Promise<InviteDocument | null> {
     return this.inviteModel
-      .findOneAndUpdate({ id, status: InviteStatus.Pending }, { $set: { status, respondedAt } }, { new: true })
+      .findOneAndUpdate(
+        { id, status: InviteStatus.Pending },
+        { $set: { status, respondedAt } },
+        { new: true },
+      )
       .exec();
   }
 
@@ -97,7 +123,11 @@ export class InvitesRepository {
     respondedAt: Date = new Date(),
   ): Promise<InviteDocument | null> {
     return this.inviteModel
-      .findOneAndUpdate({ athleteId, status: InviteStatus.Pending }, { $set: { status, respondedAt } }, { new: true })
+      .findOneAndUpdate(
+        { athleteId, status: InviteStatus.Pending },
+        { $set: { status, respondedAt } },
+        { new: true },
+      )
       .exec();
   }
 
@@ -105,7 +135,10 @@ export class InvitesRepository {
    * Cancel open invites for a coach (e.g. after athlete quota is full).
    * Optionally skip one athlete (the invite just accepted).
    */
-  async cancelPendingByCoachId(coachId: string, excludeAthleteId?: string): Promise<number> {
+  async cancelPendingByCoachId(
+    coachId: string,
+    excludeAthleteId?: string,
+  ): Promise<number> {
     const filter: {
       coachId: string;
       status: InviteStatus;

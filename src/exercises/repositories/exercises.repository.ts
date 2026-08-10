@@ -42,8 +42,16 @@ export class ExercisesRepository {
     private readonly exerciseModel: Model<ExerciseDocument>,
   ) {}
 
-  find(skip: number, limit: number, filters: ExerciseFilters = {}): Promise<ExerciseDocument[]> {
-    return this.exerciseModel.find(this.buildFilter(filters), EXERCISE_PROJECTION).skip(skip).limit(limit).exec();
+  find(
+    skip: number,
+    limit: number,
+    filters: ExerciseFilters = {},
+  ): Promise<ExerciseDocument[]> {
+    return this.exerciseModel
+      .find(this.buildFilter(filters), EXERCISE_PROJECTION)
+      .skip(skip)
+      .limit(limit)
+      .exec();
   }
 
   findById(id: string): Promise<ExerciseDocument | null> {
@@ -56,7 +64,10 @@ export class ExercisesRepository {
 
   async findRandom(): Promise<ExerciseDocument | null> {
     const [exercise] = await this.exerciseModel
-      .aggregate<ExerciseDocument>([{ $sample: { size: 1 } }, { $project: EXERCISE_PROJECTION }])
+      .aggregate<ExerciseDocument>([
+        { $sample: { size: 1 } },
+        { $project: EXERCISE_PROJECTION },
+      ])
       .exec();
 
     return exercise ?? null;
@@ -94,7 +105,11 @@ export class ExercisesRepository {
   }
 
   /** Candidates for AI recommend (+ fields needed for the HTTP response). */
-  async findForRecommend(category: string, equipment: string[], limit = 80): Promise<ExerciseDocument[]> {
+  async findForRecommend(
+    category: string,
+    equipment: string[],
+    limit = 80,
+  ): Promise<ExerciseDocument[]> {
     return this.exerciseModel
       .find(
         { category, equipment: { $in: equipment } },
@@ -119,7 +134,9 @@ export class ExercisesRepository {
       equipment?: string;
       muscle_group?: string;
       target?: string;
-      $or?: Array<{ 'name.en': RegExp } | { 'name.es': RegExp } | { id: RegExp }>;
+      $or?: Array<
+        { 'name.en': RegExp } | { 'name.es': RegExp } | { id: RegExp }
+      >;
     } = {};
 
     if (filters.category) {
@@ -138,7 +155,10 @@ export class ExercisesRepository {
       exerciseFilter.target = filters.target;
     }
     if (filters.search) {
-      const rx = new RegExp(this.toAccentInsensitivePattern(filters.search), 'i');
+      const rx = new RegExp(
+        this.toAccentInsensitivePattern(filters.search),
+        'i',
+      );
       exerciseFilter.$or = [{ 'name.en': rx }, { 'name.es': rx }, { id: rx }];
     }
 
@@ -151,7 +171,9 @@ export class ExercisesRepository {
 
   /** Case + accent insensitive pattern for Spanish-friendly search. */
   private toAccentInsensitivePattern(input: string): string {
-    const base = this.escapeRegex(input.normalize('NFD').replace(/\p{M}/gu, ''));
+    const base = this.escapeRegex(
+      input.normalize('NFD').replace(/\p{M}/gu, ''),
+    );
     return base
       .replace(/a/gi, '[aáàäâã]')
       .replace(/e/gi, '[eéèëê]')

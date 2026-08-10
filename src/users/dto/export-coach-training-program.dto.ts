@@ -4,10 +4,15 @@ import {
   DEFAULT_EXCEL_LOCALE,
   type ExcelLocale,
 } from '../../excel/constants/excel-training-program-headers';
+import {
+  DEFAULT_EXPORT_FORMAT,
+  type ExportCoachTrainingProgramFormat,
+} from '../types/export-coach-training-program-format';
 
-export type ExportCoachTrainingProgramFormat = 'xlsx' | 'pdf';
-
-export const DEFAULT_EXPORT_FORMAT: ExportCoachTrainingProgramFormat = 'xlsx';
+export {
+  DEFAULT_EXPORT_FORMAT,
+  type ExportCoachTrainingProgramFormat,
+} from '../types/export-coach-training-program-format';
 
 export class ExportCoachTrainingProgramDto {
   @ApiProperty({

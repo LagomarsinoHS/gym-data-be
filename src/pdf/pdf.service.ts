@@ -172,7 +172,10 @@ export class PdfService implements OnModuleInit {
         for (const item of group.items) {
           totalSets += item.sets ?? 0;
           tableBody.push([
-            { text: item.exerciseName ?? item.exerciseId, margin: [2, 3, 2, 3] },
+            {
+              text: item.exerciseName ?? item.exerciseId,
+              margin: [2, 3, 2, 3],
+            },
             {
               text: item.sets != null ? String(item.sets) : '',
               alignment: 'center',

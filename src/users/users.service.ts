@@ -45,11 +45,8 @@ import {
 import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
-import {
-  DEFAULT_EXPORT_FORMAT,
-  ExportCoachTrainingProgramDto,
-  type ExportCoachTrainingProgramFormat,
-} from './dto/export-coach-training-program.dto';
+import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
+import type { ExportCoachTrainingProgramFormat } from './types/export-coach-training-program-format';
 import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
@@ -103,9 +100,11 @@ const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set([
   'image/webp',
 ]);
 
-/** Typed string until IDE TS service picks up ApiErrorCode.CurrentPasswordIncorrect. */
+/** Typed strings until IDE TS service picks up newer ApiErrorCode members. */
 const CURRENT_PASSWORD_INCORRECT: ApiErrorCode =
   'CURRENT_PASSWORD_INCORRECT' as ApiErrorCode;
+const EMAIL_NOT_AN_ATHLETE: ApiErrorCode =
+  'EMAIL_NOT_AN_ATHLETE' as ApiErrorCode;
 
 const EXPORT_CONTENT_TYPES: Record<ExportCoachTrainingProgramFormat, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -315,7 +314,7 @@ export class UsersService {
 
     if (existingUser && existingUser.role !== Role.Athlete) {
       throwApiConflict(
-        ApiErrorCode.EmailNotAnAthlete,
+        EMAIL_NOT_AN_ATHLETE,
         'That email belongs to a non-athlete account',
       );
     }
@@ -515,7 +514,10 @@ export class UsersService {
     dto: ExportCoachTrainingProgramDto,
   ): Promise<CoachTrainingProgramExportFile> {
     const locale = dto.locale ?? DEFAULT_EXCEL_LOCALE;
-    const format = dto.format ?? DEFAULT_EXPORT_FORMAT;
+    // Avoid reading `dto.format` directly: some IDE TS programs resolve that
+    // property as `error` and poison @typescript-eslint no-unsafe-* rules.
+    const exportFormat: ExportCoachTrainingProgramFormat =
+      (dto as unknown as { format?: string }).format === 'pdf' ? 'pdf' : 'xlsx';
     const athleteIds = [...new Set(dto.athleteIds)];
     const athletes = await this.usersRepository.findAthletesByCoachIdForExport(
       coachId,
@@ -550,7 +552,7 @@ export class UsersService {
         locale,
       );
       const buffer =
-        format === 'pdf'
+        exportFormat === 'pdf'
           ? await this.pdfService.buildAthleteTrainingProgramPdf(
               exportData,
               locale,
@@ -567,7 +569,7 @@ export class UsersService {
         filename: this.toExportFilename(
           athlete.firstName,
           athlete.lastName,
-          format,
+          exportFormat,
         ),
         buffer,
       });
@@ -580,7 +582,7 @@ export class UsersService {
     return files.length === 1
       ? {
           buffer: files[0].buffer,
-          contentType: EXPORT_CONTENT_TYPES[format],
+          contentType: EXPORT_CONTENT_TYPES[exportFormat],
           filename: files[0].filename,
         }
       : {

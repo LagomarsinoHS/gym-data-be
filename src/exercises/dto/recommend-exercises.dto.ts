@@ -9,7 +9,8 @@ export const DEFAULT_RECOMMEND_LOCALE: RecommendLocale = 'es';
 export class RecommendExercisesQueryDto {
   @ApiProperty({
     example: 'chest',
-    description: 'Catalog category (same values as GET /exercises/labels → category)',
+    description:
+      'Catalog category (same values as GET /exercises/labels → category)',
   })
   zone: string;
 
@@ -79,22 +80,26 @@ export class RecommendExercisesResponseDto {
   exercises: RecommendExerciseDto[];
 }
 
-export const recommendExercisesQuerySchema = Joi.object<RecommendExercisesQueryDto>({
-  zone: Joi.string().trim().min(1).required(),
-  equipment: Joi.any()
-    .custom((value, helpers) => {
-      const items = parseEquipment(value);
-      if (items.length < 1 || items.length > 2) {
-        return helpers.error('any.invalid');
-      }
-      return items;
-    })
-    .required()
-    .messages({
-      'any.invalid': 'equipment must include 1 or 2 values',
-    }),
-  locale: Joi.string().valid('es', 'en').default(DEFAULT_RECOMMEND_LOCALE).optional(),
-});
+export const recommendExercisesQuerySchema =
+  Joi.object<RecommendExercisesQueryDto>({
+    zone: Joi.string().trim().min(1).required(),
+    equipment: Joi.any()
+      .custom((value, helpers) => {
+        const items = parseEquipment(value);
+        if (items.length < 1 || items.length > 2) {
+          return helpers.error('any.invalid');
+        }
+        return items;
+      })
+      .required()
+      .messages({
+        'any.invalid': 'equipment must include 1 or 2 values',
+      }),
+    locale: Joi.string()
+      .valid('es', 'en')
+      .default(DEFAULT_RECOMMEND_LOCALE)
+      .optional(),
+  });
 
 function parseEquipment(value: unknown): string[] {
   if (Array.isArray(value)) {
