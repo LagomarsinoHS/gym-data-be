@@ -420,7 +420,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Invite an athlete by email',
     description:
-      'Creates a pending Invite for the athlete with the authenticated coach id.',
+      'Creates a pending Invite by email. The athlete may not be registered yet; when they register with that email the invite is linked. Pending invites expire after 24h if unanswered.',
   })
   @ApiBody({ type: CreateCoachInviteDto })
   @ApiCreatedResponse({ type: OkResponseDto })
@@ -428,9 +428,8 @@ export class UsersController {
   @ApiForbiddenResponse({
     description: 'Requires coach role, or athlete limit reached for plan',
   })
-  @ApiNotFoundResponse({ description: 'Athlete not found for that email' })
   @ApiConflictResponse({
-    description: 'Athlete already has a pending invitation',
+    description: 'Pending invite already exists for that email, or email belongs to a non-athlete account',
   })
   createCoachInvite(
     @CurrentUser() user: AuthenticatedUser,

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
+import { PENDING_INVITE_TTL_SECONDS } from '../types/pending-invite-ttl';
 import { InviteStatus } from '../types/invite-status.enum';
 
 export type InviteDocument = HydratedDocument<Invite>;
@@ -15,9 +16,13 @@ export class Invite {
   @Prop({ required: true, index: true })
   coachId: string;
 
-  @ApiProperty({ example: 'ee923be1-1192-460e-89ee-2275d4d3f206' })
-  @Prop({ required: true })
-  athleteId: string;
+  @ApiPropertyOptional({
+    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
+    nullable: true,
+    description: 'Null until the athlete registers with this invite email',
+  })
+  @Prop({ type: String, default: null })
+  athleteId: string | null;
 
   @ApiProperty({ example: 'athlete@example.com' })
   @Prop({ required: true, lowercase: true, trim: true })
@@ -50,11 +55,37 @@ export const InviteSchema = SchemaFactory.createForClass(Invite);
 
 InviteSchema.index({ coachId: 1, status: 1 });
 InviteSchema.index({ athleteId: 1, status: 1 });
-/** At most one open invite per athlete. */
+InviteSchema.index({ email: 1, status: 1 });
+
+/** At most one open invite per registered athlete. */
 InviteSchema.index(
   { athleteId: 1 },
   {
     unique: true,
+    partialFilterExpression: {
+      status: InviteStatus.Pending,
+      athleteId: { $type: 'string' },
+    },
+  },
+);
+
+/** At most one open invite per email (covers pre-register). */
+InviteSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: InviteStatus.Pending },
+  },
+);
+
+/**
+ * Auto-delete unanswered invites after 24h.
+ * Accepted / rejected / cancelled no longer match the filter and are kept.
+ */
+InviteSchema.index(
+  { invitedAt: 1 },
+  {
+    expireAfterSeconds: PENDING_INVITE_TTL_SECONDS,
     partialFilterExpression: { status: InviteStatus.Pending },
   },
 );

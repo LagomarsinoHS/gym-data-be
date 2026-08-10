@@ -29,7 +29,7 @@ export class RegisterDto {
 }
 
 export const registerSchema = Joi.object<RegisterDto>({
-  email: Joi.string().trim().email().required(),
+  email: Joi.string().trim().lowercase().email().required(),
   password: Joi.string().min(4).required(),
   firstName: Joi.string().trim().min(1).required(),
   lastName: Joi.string().trim().min(1).required(),

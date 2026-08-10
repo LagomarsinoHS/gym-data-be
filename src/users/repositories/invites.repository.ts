@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Invite, InviteDocument } from '../schemas/invite.schema';
 import type { CreateInviteData } from '../types/create-invite-data.type';
 import { InviteStatus } from '../types/invite-status.enum';
+import { PENDING_INVITE_TTL_MS } from '../types/pending-invite-ttl';
 
 @Injectable()
 export class InvitesRepository {
@@ -17,6 +18,7 @@ export class InvitesRepository {
       status: InviteStatus.Pending,
       respondedAt: null,
       ...data,
+      athleteId: data.athleteId ?? null,
     });
   }
 
@@ -47,6 +49,36 @@ export class InvitesRepository {
 
   findPendingByAthleteId(athleteId: string): Promise<InviteDocument | null> {
     return this.inviteModel.findOne({ athleteId, status: InviteStatus.Pending }).exec();
+  }
+
+  findPendingByEmail(email: string): Promise<InviteDocument | null> {
+    return this.inviteModel.findOne({ email: email.toLowerCase().trim(), status: InviteStatus.Pending }).exec();
+  }
+
+  async linkAthleteIdByEmail(email: string, athleteId: string): Promise<number> {
+    const result = await this.inviteModel
+      .updateMany(
+        { email: email.toLowerCase().trim(), status: InviteStatus.Pending, athleteId: null },
+        { $set: { athleteId } },
+      )
+      .exec();
+
+    return result.modifiedCount;
+  }
+
+  /**
+   * Delete pending invites older than the TTL (belt-and-suspenders for Mongo TTL lag).
+   */
+  async deleteExpiredPending(now: Date = new Date()): Promise<number> {
+    const cutoff = new Date(now.getTime() - PENDING_INVITE_TTL_MS);
+    const result = await this.inviteModel
+      .deleteMany({
+        status: InviteStatus.Pending,
+        invitedAt: { $lt: cutoff },
+      })
+      .exec();
+
+    return result.deletedCount;
   }
 
   async updateStatus(

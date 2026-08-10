@@ -23,6 +23,25 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 
 ## Pendiente — back
 
+### Invite pre-registro (email aunque el atleta no exista + TTL 24h)
+
+> Detalle FE en `docs/TODO.md` § Onboarding / Invite pre-registro.
+
+- [x] Schema Invite: `athleteId` opcional; índice único pending por email / athleteId
+- [x] Create invite sin exigir user existente; `EMAIL_NOT_AN_ATHLETE` si el email es coach/admin
+- [x] Register athlete: link pending invites by email
+- [x] Cleanup pending > 24h (TTL parcial Mongo + deleteExpiredPending oportunista)
+- [x] Doc `API-ENDPOINTS.md` + codes
+
+### PDF brand (export con marca del coach)
+
+> Detalle de producto / UI en FE `docs/TODO.md` § PDF brand.
+
+- [ ] Incluir en el PDF: coach (nombre), atleta, fecha; logo/profilePhoto si hay URL
+- [ ] Pasar brand al `PdfService` desde export (users → pdf); pie “Preparado por {Coach}”
+- [ ] (Opc.) acentos / ocultar marca ExerciseDB en planes pagos
+- [ ] Doc en `API-ENDPOINTS.md` si el body/export gana campos de brand
+
 ### Fotos de progreso (atleta → Cloudinary → coach)
 
 Modelo en `User` (array `progressPhotos`, mismo estilo que `trainingProgram`):
@@ -98,5 +117,7 @@ Response del GET:
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
 - [x] **Mi perfil** — `PATCH /users/me` (firstName / lastName / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`
 - [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
-- [x] **Baja de cuenta** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); UI en Mi perfil (FE)
+- [x] **Baja de cuenta** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); UI en Mi perfil (FE).
+  - Acuerdo: **no** limpia `coachId` / plan / invites (el user desaparece de Mis alumnos por el filtro `deletedAt`, libera cupo). Distinto de “dejar al coach” (unlink activo).
+- [ ] **Dejar coach** (athlete unlink) — endpoint + UI: quitar `coachId`, opcional archivar/cancelar vínculo; no es soft-delete de cuenta
 - [ ] (Opc.) `cancelReason` en Invite cuando se cancela por cuota

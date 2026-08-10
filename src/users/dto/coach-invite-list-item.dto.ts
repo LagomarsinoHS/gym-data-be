@@ -13,8 +13,12 @@ export class CoachInviteListItemDto {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
   id: string;
 
-  @ApiProperty({ example: 'ee923be1-1192-460e-89ee-2275d4d3f206' })
-  athleteId: string;
+  @ApiPropertyOptional({
+    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
+    nullable: true,
+    description: 'Null while the invite is pending and the athlete has not registered yet',
+  })
+  athleteId: string | null;
 
   @ApiProperty({ example: 'athlete@example.com' })
   email: string;

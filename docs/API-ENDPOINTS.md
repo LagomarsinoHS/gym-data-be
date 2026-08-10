@@ -486,7 +486,9 @@ POST /users/{userId}/progress-photos/analyze
 | Auth | JWT + **coach** |
 | Respuesta | `201` — `{ ok: true }` |
 | Errores | `403` si ya alcanzó la cuota (`code: COACH_ATHLETE_QUOTA_FULL`). Cupos: `free` 5 / `growth` 10 / `pro` 20 |
-| Errores | `404` `ATHLETE_NOT_FOUND_BY_EMAIL` · `409` `ATHLETE_HAS_PENDING_INVITE` |
+| Errores | `409` `ATHLETE_HAS_PENDING_INVITE` · `409` `EMAIL_NOT_AN_ATHLETE` (email es coach/admin) |
+
+El atleta **puede no existir aún**. Se crea un invite `pending` por email (`athleteId: null`). Al **registrarse** como athlete con ese email se vincula `athleteId`. Los `pending` sin respuesta se **eliminan a las 24h** (TTL Mongo + cleanup oportunista).
 
 Pending invites **no** cuentan para la cuota; solo athletes con `coachId` asignado.
 
@@ -494,7 +496,7 @@ Pending invites **no** cuentan para la cuota; solo athletes con `coachId` asigna
 
 | Campo | | Notas |
 |---|---|---|
-| `email` | Obligatorio | email de un athlete existente |
+| `email` | Obligatorio | email del atleta (registrado o no) |
 
 ```json
 {
@@ -776,8 +778,9 @@ Códigos estables para i18n en el client (`code` + `message` EN de debug):
 | Code | HTTP | Cuándo |
 |---|---|---|
 | `COACH_ATHLETE_QUOTA_FULL` | 403 | Coach invita con cupo lleno, o atleta acepta y el coach ya está al límite |
-| `ATHLETE_NOT_FOUND_BY_EMAIL` | 404 | Invite a email que no es athlete |
-| `ATHLETE_HAS_PENDING_INVITE` | 409 | Athlete ya tiene una invite pending |
+| `EMAIL_NOT_AN_ATHLETE` | 409 | Invite a un email que ya es coach/admin (no athlete) |
+| `ATHLETE_NOT_FOUND_BY_EMAIL` | 404 | (legacy) Ya no se usa en invite; el atleta puede no existir aún |
+| `ATHLETE_HAS_PENDING_INVITE` | 409 | Ya hay una invite pending para ese email / athlete |
 | `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
 | `CURRENT_PASSWORD_INCORRECT` | 400 | `PATCH /users/me` con `newPassword` y contraseña actual incorrecta |
 | `AI_NOT_CONFIGURED` | 503 | Llamada a `AiService` sin `GEMINI_API_KEY` |

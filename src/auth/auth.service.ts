@@ -29,6 +29,10 @@ export class AuthService {
       id: randomUUID(),
     });
 
+    if (user.role === Role.Athlete) {
+      await this.usersService.linkPendingInvitesForNewAthlete(user.id, user.email);
+    }
+
     const accessToken = await this.signAccessToken(user.id, user.role);
 
     return { accessToken, user };
