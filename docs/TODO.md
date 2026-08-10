@@ -68,7 +68,7 @@ Checklist:
 - [x] Schema: `progressPhotos` en `User` (default `[]`)
 - [x] Schema: `weightKg` por mes + `currentWeightKg` en `User` (recompute al mutar)
 - [x] Atleta: `POST /users/me/progress-photos` — multipart `weightKg` + `yearMonth?` + `front`? + `back`? (≥1 foto); Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}`; upsert mes (actual o backfill); setea `weightKg` + `currentWeightKg`
-- [x] Atleta: `DELETE /users/me/progress-photos` — body `{ yearMonth, side? }`; sin `side` borra el mes (assets + carpeta); con `side` borra solo esa foto (y la carpeta si el mes queda vacío); actualiza Mongo + recompute peso (**API lista; FE aún no expone UI de borrado**)
+- [~] ~~Atleta: `DELETE /users/me/progress-photos`~~ — descartado (sin producto; se reemplaza al volver a subir)
 - [x] **GET único** `GET /users/:userId/progress-photos` — `{ currentWeightKg, years: [...] }`; authz self ó coach asignado; query opcional `?year=2026`
 - [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
 - [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / DELETE / GET)
@@ -115,7 +115,10 @@ Response del GET:
 - [x] Recommend IA — `GET /exercises/recommend` (zone + 1–2 equipment → candidatos slim → AI 4 ejercicios con `sets`/`reps`/`rest` + `note`)
 - [ ] (Más adelante) Recommend: modo `from_plan` / `discover`
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
-- [x] **Mi perfil** — `PATCH /users/me` (firstName / lastName / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`
+- [x] **Mi perfil** — `PATCH /users/me` (`profile` / `goal` / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`
+- [x] **Perfil corporal opcional** — `User.profile` (`firstName`, `lastName`, `heightCm`, `sex`, `birthDate`) + `goal` top-level; `/me` + `PATCH /users/me` (`null` limpia opcionales); no van en register (register mapea nombre → `profile`)
+- [x] Migrar users flat → `profile` en Mongo: `npm run migrate:user-profile`
+- [ ] (Más adelante) Usar height/sex/birthDate/goal en prompts de recommend / analyze progress
 - [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
 - [x] **Baja de cuenta** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); UI en Mi perfil (FE).
   - Acuerdo: **no** limpia `coachId` / plan / invites (el user desaparece de Mis alumnos por el filtro `deletedAt`, libera cupo). Distinto de “dejar al coach” (unlink activo).

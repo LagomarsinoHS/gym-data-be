@@ -3,6 +3,8 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 import { Role } from '../types/role.enum';
 import { SubscriptionPlan } from '../types/subscription-plan.enum';
+import { UserGoal } from '../types/user-goal.enum';
+import { UserSex } from '../types/user-sex.enum';
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -131,6 +133,43 @@ export class ProgressPhotoMonth {
   back: ProgressPhoto | null;
 }
 
+/** Personal identity / body fields (account credentials stay on User). */
+@Schema({ _id: false })
+export class UserProfile {
+  @ApiProperty({ example: 'Humberto' })
+  @Prop({ required: true, trim: true })
+  firstName: string;
+
+  @ApiProperty({ example: 'Doe' })
+  @Prop({ required: true, trim: true })
+  lastName: string;
+
+  @ApiPropertyOptional({
+    example: 175,
+    nullable: true,
+    description: 'Height in centimeters',
+  })
+  @Prop({ type: Number, default: null })
+  heightCm: number | null;
+
+  @ApiPropertyOptional({
+    enum: UserSex,
+    example: UserSex.Male,
+    nullable: true,
+    description: 'Optional sex for metrics / AI context',
+  })
+  @Prop({ type: String, enum: UserSex, default: null })
+  sex: UserSex | null;
+
+  @ApiPropertyOptional({
+    example: '1995-06-15',
+    nullable: true,
+    description: 'Birth date as YYYY-MM-DD (calendar date, no timezone)',
+  })
+  @Prop({ type: String, default: null })
+  birthDate: string | null;
+}
+
 @Schema({ timestamps: true, collection: 'users', id: false })
 export class User {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
@@ -141,13 +180,18 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
-  @ApiProperty({ example: 'Humberto' })
-  @Prop({ required: true, trim: true })
-  firstName: string;
+  @ApiProperty({ type: UserProfile })
+  @Prop({ type: UserProfile, required: true })
+  profile: UserProfile;
 
-  @ApiProperty({ example: 'Doe' })
-  @Prop({ required: true })
-  lastName: string;
+  @ApiPropertyOptional({
+    enum: UserGoal,
+    example: UserGoal.Hypertrophy,
+    nullable: true,
+    description: 'Optional training goal (not personal body data)',
+  })
+  @Prop({ type: String, enum: UserGoal, default: null })
+  goal: UserGoal | null;
 
   @ApiProperty({ example: 'examplePassword', writeOnly: true })
   @Prop({ required: true })

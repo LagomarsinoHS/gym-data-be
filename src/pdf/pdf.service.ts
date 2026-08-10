@@ -6,18 +6,15 @@ import type {
   TDocumentDefinitions,
   TableCell,
 } from 'pdfmake/interfaces';
+import { groupTrainingProgramItemsByCategory } from '../common/export/group-training-program-items';
 import {
-  DEFAULT_EXCEL_LOCALE,
-  EXCEL_STYLE,
-  EXCEL_TRAINING_PROGRAM_HEADERS,
-  excelCategoryLabel,
-  excelCategoryTheme,
-  type ExcelLocale,
-} from '../excel/constants/excel-training-program-headers';
-import type {
-  AthleteTrainingProgramExport,
-  ExcelTrainingProgramItem,
-} from '../excel/types/athlete-training-program-export.type';
+  DEFAULT_EXPORT_LOCALE,
+  EXPORT_STYLE,
+  TRAINING_PROGRAM_EXPORT_HEADERS,
+  exportCategoryTheme,
+  type ExportLocale,
+} from '../common/export/training-program-export-headers';
+import type { AthleteTrainingProgramExport } from '../common/export/athlete-training-program-export.type';
 
 function argbToHex(argb: string): string {
   const hex = argb.replace(/^FF/i, '');
@@ -57,7 +54,7 @@ export class PdfService implements OnModuleInit {
    */
   async buildAthleteTrainingProgramPdf(
     data: AthleteTrainingProgramExport,
-    locale: ExcelLocale = DEFAULT_EXCEL_LOCALE,
+    locale: ExportLocale = DEFAULT_EXPORT_LOCALE,
   ): Promise<Buffer | null> {
     const coachTrainingProgram = [...data.coachTrainingProgram].sort(
       (a, b) => a.order - b.order,
@@ -66,7 +63,7 @@ export class PdfService implements OnModuleInit {
       return null;
     }
 
-    const headers = EXCEL_TRAINING_PROGRAM_HEADERS[locale];
+    const headers = TRAINING_PROGRAM_EXPORT_HEADERS[locale];
     const athleteName =
       `${data.firstName} ${data.lastName}`.trim() || headers.fileName;
 
@@ -92,7 +89,7 @@ export class PdfService implements OnModuleInit {
               {
                 text: program.name.toUpperCase(),
                 style: 'sessionBanner',
-                fillColor: argbToHex(EXCEL_STYLE.sessionFillArgb),
+                fillColor: argbToHex(EXPORT_STYLE.sessionFillArgb),
                 alignment: 'center',
                 margin: [0, 10, 0, 10],
               },
@@ -106,7 +103,7 @@ export class PdfService implements OnModuleInit {
       const items = [...program.items].sort(
         (a, b) => (a.order ?? 0) - (b.order ?? 0),
       );
-      const groups = this.groupItemsByCategory(
+      const groups = groupTrainingProgramItemsByCategory(
         items,
         locale,
         headers.otherGroup,
@@ -117,35 +114,35 @@ export class PdfService implements OnModuleInit {
           {
             text: headers.exercise,
             style: 'tableHeader',
-            fillColor: argbToHex(EXCEL_STYLE.headerFillArgb),
-            color: argbToHex(EXCEL_STYLE.headerFontArgb),
+            fillColor: argbToHex(EXPORT_STYLE.headerFillArgb),
+            color: argbToHex(EXPORT_STYLE.headerFontArgb),
           },
           {
             text: headers.sets,
             style: 'tableHeader',
-            fillColor: argbToHex(EXCEL_STYLE.headerFillArgb),
-            color: argbToHex(EXCEL_STYLE.headerFontArgb),
+            fillColor: argbToHex(EXPORT_STYLE.headerFillArgb),
+            color: argbToHex(EXPORT_STYLE.headerFontArgb),
             alignment: 'center',
           },
           {
             text: headers.reps,
             style: 'tableHeader',
-            fillColor: argbToHex(EXCEL_STYLE.headerFillArgb),
-            color: argbToHex(EXCEL_STYLE.headerFontArgb),
+            fillColor: argbToHex(EXPORT_STYLE.headerFillArgb),
+            color: argbToHex(EXPORT_STYLE.headerFontArgb),
             alignment: 'center',
           },
           {
             text: headers.rest,
             style: 'tableHeader',
-            fillColor: argbToHex(EXCEL_STYLE.headerFillArgb),
-            color: argbToHex(EXCEL_STYLE.headerFontArgb),
+            fillColor: argbToHex(EXPORT_STYLE.headerFillArgb),
+            color: argbToHex(EXPORT_STYLE.headerFontArgb),
             alignment: 'center',
           },
           {
             text: headers.notes,
             style: 'tableHeader',
-            fillColor: argbToHex(EXCEL_STYLE.headerFillArgb),
-            color: argbToHex(EXCEL_STYLE.headerFontArgb),
+            fillColor: argbToHex(EXPORT_STYLE.headerFillArgb),
+            color: argbToHex(EXPORT_STYLE.headerFontArgb),
           },
         ],
       ];
@@ -153,7 +150,7 @@ export class PdfService implements OnModuleInit {
       let totalSets = 0;
 
       for (const group of groups) {
-        const theme = excelCategoryTheme(group.key);
+        const theme = exportCategoryTheme(group.key);
         tableBody.push([
           {
             text: group.label,
@@ -202,7 +199,7 @@ export class PdfService implements OnModuleInit {
           colSpan: 4,
           bold: true,
           alignment: 'center',
-          fillColor: argbToHex(EXCEL_STYLE.totalFillArgb),
+          fillColor: argbToHex(EXPORT_STYLE.totalFillArgb),
           margin: [4, 6, 4, 6],
         },
         {},
@@ -212,7 +209,7 @@ export class PdfService implements OnModuleInit {
           text: String(totalSets),
           bold: true,
           alignment: 'center',
-          fillColor: argbToHex(EXCEL_STYLE.totalFillArgb),
+          fillColor: argbToHex(EXPORT_STYLE.totalFillArgb),
           margin: [4, 6, 4, 6],
         },
       ]);
@@ -226,8 +223,8 @@ export class PdfService implements OnModuleInit {
         layout: {
           hLineWidth: () => 0.5,
           vLineWidth: () => 0.5,
-          hLineColor: () => argbToHex(EXCEL_STYLE.softBorderArgb),
-          vLineColor: () => argbToHex(EXCEL_STYLE.softBorderArgb),
+          hLineColor: () => argbToHex(EXPORT_STYLE.softBorderArgb),
+          vLineColor: () => argbToHex(EXPORT_STYLE.softBorderArgb),
         },
       });
     }
@@ -263,39 +260,5 @@ export class PdfService implements OnModuleInit {
     };
 
     return pdfmake.createPdf(docDefinition).getBuffer();
-  }
-
-  private groupItemsByCategory(
-    items: ExcelTrainingProgramItem[],
-    locale: ExcelLocale,
-    otherLabel: string,
-  ): { key: string; label: string; items: ExcelTrainingProgramItem[] }[] {
-    const groups: {
-      key: string;
-      label: string;
-      items: ExcelTrainingProgramItem[];
-    }[] = [];
-    const indexByKey = new Map<string, number>();
-
-    for (const item of items) {
-      const key = item.category?.trim().toLowerCase() || '__other__';
-      let index = indexByKey.get(key);
-      if (index === undefined) {
-        index = groups.length;
-        indexByKey.set(key, index);
-        groups.push({
-          key,
-          label: excelCategoryLabel(
-            key === '__other__' ? undefined : item.category,
-            locale,
-            otherLabel,
-          ),
-          items: [],
-        });
-      }
-      groups[index].items.push(item);
-    }
-
-    return groups;
   }
 }

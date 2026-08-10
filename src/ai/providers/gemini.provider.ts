@@ -150,9 +150,9 @@ export class GeminiAiProvider implements AiService {
           ApiErrorCode.AiRequestFailed,
           'AI returned an empty response',
         );
-      } else {
-        return JSON.parse(text) as RecommendWorkoutResult;
       }
+
+      return JSON.parse(text) as RecommendWorkoutResult;
     } catch (err) {
       if (err instanceof HttpException) {
         throw err;

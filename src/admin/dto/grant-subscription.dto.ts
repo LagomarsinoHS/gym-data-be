@@ -8,7 +8,7 @@ import type { GrantableSubscriptionPlan } from '../../users/types/subscription-p
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
-export class GrantPremiumDto {
+export class GrantSubscriptionDto {
   @ApiProperty({
     example: 'user@example.com',
     description: 'Target user email (unique)',
@@ -38,7 +38,7 @@ export class GrantPremiumDto {
   expiresAt?: string;
 }
 
-export const grantPremiumSchema = Joi.object<GrantPremiumDto>({
+export const grantSubscriptionSchema = Joi.object<GrantSubscriptionDto>({
   email: Joi.string().trim().lowercase().email().required(),
   plan: Joi.string()
     .valid(...GRANTABLE_SUBSCRIPTION_PLANS)

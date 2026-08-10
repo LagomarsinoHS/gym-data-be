@@ -30,7 +30,11 @@ type AthletesByCoachFilter = {
   role: Role;
   coachId: string;
   deletedAt: { $exists: false };
-  $or?: Array<{ firstName: RegExp } | { lastName: RegExp } | { email: RegExp }>;
+  $or?: Array<
+    | { 'profile.firstName': RegExp }
+    | { 'profile.lastName': RegExp }
+    | { email: RegExp }
+  >;
 };
 
 @Injectable()
@@ -90,8 +94,7 @@ export class UsersRepository {
       .find(filter)
       .select({
         id: 1,
-        firstName: 1,
-        lastName: 1,
+        profile: 1,
         coachTrainingProgram: 1,
         _id: 0,
       })
@@ -248,14 +251,34 @@ export class UsersRepository {
   async updateProfileFields(
     userId: string,
     patch: {
-      firstName?: string;
-      lastName?: string;
       password?: string;
+      goal?: string | null;
+      profile?: {
+        firstName?: string;
+        lastName?: string;
+        heightCm?: number | null;
+        sex?: string | null;
+        birthDate?: string | null;
+      };
     },
   ): Promise<void> {
-    if (Object.keys(patch).length === 0) return;
+    const $set: Record<string, unknown> = {};
+    if (patch.password !== undefined) {
+      $set.password = patch.password;
+    }
+    if (patch.goal !== undefined) {
+      $set.goal = patch.goal;
+    }
+    if (patch.profile) {
+      for (const [key, value] of Object.entries(patch.profile)) {
+        if (value !== undefined) {
+          $set[`profile.${key}`] = value;
+        }
+      }
+    }
+    if (Object.keys($set).length === 0) return;
     await this.userModel
-      .updateOne({ id: userId, ...NOT_DELETED }, { $set: patch })
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set })
       .exec();
   }
 
@@ -282,7 +305,11 @@ export class UsersRepository {
 
     if (search) {
       const rx = new RegExp(this.escapeRegex(search), 'i');
-      filter.$or = [{ firstName: rx }, { lastName: rx }, { email: rx }];
+      filter.$or = [
+        { 'profile.firstName': rx },
+        { 'profile.lastName': rx },
+        { email: rx },
+      ];
     }
 
     return filter;

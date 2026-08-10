@@ -1,9 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import * as Joi from 'joi';
 import {
-  DEFAULT_EXCEL_LOCALE,
-  type ExcelLocale,
-} from '../../excel/constants/excel-training-program-headers';
+  DEFAULT_EXPORT_LOCALE,
+  type ExportLocale,
+} from '../../common/export/training-program-export-headers';
 import {
   DEFAULT_EXPORT_FORMAT,
   type ExportCoachTrainingProgramFormat,
@@ -25,10 +25,10 @@ export class ExportCoachTrainingProgramDto {
 
   @ApiPropertyOptional({
     enum: ['es', 'en'],
-    default: DEFAULT_EXCEL_LOCALE,
+    default: DEFAULT_EXPORT_LOCALE,
     description: 'Locale for headers and exercise names',
   })
-  locale?: ExcelLocale;
+  locale?: ExportLocale;
 
   @ApiPropertyOptional({
     enum: ['xlsx', 'pdf'],
@@ -43,7 +43,7 @@ export const exportCoachTrainingProgramSchema =
     athleteIds: Joi.array().items(Joi.string().trim().min(1)).required(),
     locale: Joi.string()
       .valid('es', 'en')
-      .default(DEFAULT_EXCEL_LOCALE)
+      .default(DEFAULT_EXPORT_LOCALE)
       .optional(),
     format: Joi.string()
       .valid('xlsx', 'pdf')

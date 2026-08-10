@@ -22,17 +22,6 @@ export class InvitesRepository {
     });
   }
 
-  findById(id: string): Promise<InviteDocument | null> {
-    return this.inviteModel.findOne({ id }).exec();
-  }
-
-  findPendingByCoachId(coachId: string): Promise<InviteDocument[]> {
-    return this.inviteModel
-      .find({ coachId, status: InviteStatus.Pending })
-      .sort({ invitedAt: -1 })
-      .exec();
-  }
-
   async findByCoachId(
     coachId: string,
     skip: number,
@@ -101,20 +90,6 @@ export class InvitesRepository {
       .exec();
 
     return result.deletedCount;
-  }
-
-  async updateStatus(
-    id: string,
-    status: Exclude<InviteStatus, InviteStatus.Pending>,
-    respondedAt: Date = new Date(),
-  ): Promise<InviteDocument | null> {
-    return this.inviteModel
-      .findOneAndUpdate(
-        { id, status: InviteStatus.Pending },
-        { $set: { status, respondedAt } },
-        { new: true },
-      )
-      .exec();
   }
 
   async updatePendingByAthleteId(

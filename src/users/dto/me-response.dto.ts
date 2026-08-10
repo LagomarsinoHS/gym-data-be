@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ExerciseName } from '../../exercises/schemas/exercise.schema';
 import { Role } from '../types/role.enum';
 import { SubscriptionPlan } from '../types/subscription-plan.enum';
+import { UserGoal } from '../types/user-goal.enum';
+import { UserSex } from '../types/user-sex.enum';
 
 export class MeSubscriptionDto {
   @ApiProperty({ enum: SubscriptionPlan, example: SubscriptionPlan.Free })
@@ -142,6 +144,34 @@ export class MeProfilePhotoDto {
   uploadedAt: Date;
 }
 
+export class MeProfileDto {
+  @ApiProperty({ example: 'Humberto' })
+  firstName: string;
+
+  @ApiProperty({ example: 'Lagomarsino' })
+  lastName: string;
+
+  @ApiPropertyOptional({
+    example: 175,
+    nullable: true,
+    description: 'Height in centimeters',
+  })
+  heightCm: number | null;
+
+  @ApiPropertyOptional({
+    enum: UserSex,
+    nullable: true,
+  })
+  sex: UserSex | null;
+
+  @ApiPropertyOptional({
+    example: '1995-06-15',
+    nullable: true,
+    description: 'Birth date YYYY-MM-DD',
+  })
+  birthDate: string | null;
+}
+
 export class MeResponseDto {
   @ApiProperty({ example: '05549aab-26fa-4b13-9528-513cae92be14' })
   id: string;
@@ -149,11 +179,15 @@ export class MeResponseDto {
   @ApiProperty({ example: 'user@example.com' })
   email: string;
 
-  @ApiProperty({ example: 'Humberto' })
-  firstName: string;
+  @ApiProperty({ type: MeProfileDto })
+  profile: MeProfileDto;
 
-  @ApiProperty({ example: 'Lagomarsino' })
-  lastName: string;
+  @ApiPropertyOptional({
+    enum: UserGoal,
+    nullable: true,
+    description: 'Training goal (top-level, not inside profile)',
+  })
+  goal: UserGoal | null;
 
   @ApiProperty({ enum: Role, example: Role.Athlete })
   role: Role;

@@ -33,13 +33,13 @@ El front traduce por `code`. Ver sección [API error codes](#api-error-codes) ab
 | | |
 |---|---|
 | Auth | No |
-| Respuesta | `201` — `{ accessToken, user }` |
+| Respuesta | `201` — `{ accessToken }` (el perfil completo se obtiene con `GET /users/me`) |
 
 **Body**
 
 | Campo | | Notas |
 |---|---|---|
-| `email` | Obligatorio | email válido |
+| `email` | Obligatorio | email válido (se normaliza a minúsculas) |
 | `password` | Obligatorio | mín. 4 caracteres |
 | `firstName` | Obligatorio | |
 | `lastName` | Obligatorio | |
@@ -62,13 +62,14 @@ El front traduce por `code`. Ver sección [API error codes](#api-error-codes) ab
 | | |
 |---|---|
 | Auth | No |
-| Respuesta | `200` — `{ accessToken, user }` |
+| Respuesta | `200` — `{ accessToken }` |
+| Notas | Cuentas soft-deleted (`deletedAt`) se tratan como credenciales inválidas |
 
 **Body**
 
 | Campo | | Notas |
 |---|---|---|
-| `email` | Obligatorio | |
+| `email` | Obligatorio | se normaliza a minúsculas |
 | `password` | Obligatorio | mín. 4 caracteres |
 
 ```json
@@ -195,7 +196,7 @@ Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 |---|---|
 | Auth | JWT |
 | Body | — |
-| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription` y `profilePhoto: null \| { url, uploadedAt }`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
+| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`, `profilePhoto`, `profile: { firstName, lastName, heightCm, sex, birthDate }`, y `goal` a nivel raíz (`null` si no se setearon). Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
 
 Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
 
@@ -210,20 +211,32 @@ Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `e
 | Respuesta | `200` — `MeResponseDto` actualizado |
 | Errores | `400` sin campos / payload inválido / contraseña actual incorrecta; `404` user |
 
-Al menos uno de: `firstName`, `lastName`, `newPassword`.
+Al menos uno de: `profile`, `goal`, `newPassword`.
+
+Los campos dentro de `profile` y `goal` aceptan `null` para limpiar (excepto `firstName` / `lastName`, que no se vacían).
 
 | Campo | | Notas |
 |---|---|---|
-| `firstName` | Opcional | string trim, min 1 |
-| `lastName` | Opcional | string trim, min 1 |
+| `profile.firstName` | Opcional | string trim, min 1 |
+| `profile.lastName` | Opcional | string trim, min 1 |
+| `profile.heightCm` | Opcional | entero 50–300, o `null` |
+| `profile.sex` | Opcional | `male` \| `female` \| `other` \| `prefer_not_to_say`, o `null` |
+| `profile.birthDate` | Opcional | `YYYY-MM-DD`, o `null` |
+| `goal` | Opcional | `strength` \| `hypertrophy` \| `fat_loss` \| `general`, o `null` (top-level) |
 | `currentPassword` | Condicional | obligatorio si envías `newPassword` |
 | `newPassword` | Opcional | min 4 |
 | `confirmNewPassword` | Condicional | obligatorio si `newPassword`; debe coincidir |
 
 ```json
 {
-  "firstName": "Humberto",
-  "lastName": "Lagomarsino"
+  "profile": {
+    "firstName": "Humberto",
+    "lastName": "Lagomarsino",
+    "heightCm": 175,
+    "sex": "male",
+    "birthDate": "1995-06-15"
+  },
+  "goal": "hypertrophy"
 }
 ```
 
@@ -335,32 +348,6 @@ Soft-delete: solo setea `deletedAt`. No limpia `coachId` ni relaciones. El usuar
 
 ---
 
-### `DELETE /users/me/progress-photos`
-
-| | |
-|---|---|
-| Auth | JWT + **athlete** |
-| Body | JSON |
-| Respuesta | `200` — `{ yearMonth, front, back }` (estado del mes tras el delete; ambos `null` si se borró el mes entero) |
-| Errores | `403` si no es athlete; `404` si no hay mes / side; `400` yearMonth inválido |
-
-**Body**
-
-| Campo | | Notas |
-|---|---|---|
-| `yearMonth` | Obligatorio | `YYYY-MM` |
-| `side` | Opcional | `front` \| `back`. Si falta → borra mes completo (assets + carpeta Cloudinary) |
-
-```json
-{ "yearMonth": "2026-08", "side": "front" }
-```
-
-```json
-{ "yearMonth": "2026-08" }
-```
-
----
-
 ### `GET /users/:userId/progress-photos`
 
 | | |
@@ -385,8 +372,8 @@ GET /users/{userId}/progress-photos?year=2026
 | Auth | JWT + **coach** + **subscription ≠ free** (activa) |
 | Body | `{ yearMonths: [YYYY-MM, YYYY-MM], locale? }` |
 | Respuesta | `200` — `{ sections: [{ title, blocks }] }` JSON estructurado de la IA |
-| Authz | JWT + **coach** + **subscription ≠ free** |
-| Errores | `401` sin JWT; `403` role / `PAID_SUBSCRIPTION_REQUIRED`; `400` meses inválidos; `404` atleta; `502`/`503` AI |
+| Authz | Coach autenticado con `athlete.coachId === jwt.sub` (+ plan pago) |
+| Errores | `401` sin JWT; `403` role / no assigned / `PAID_SUBSCRIPTION_REQUIRED`; `400` meses inválidos; `404` atleta; `502` AI |
 
 El BE descarga las fotos `older` (antes) y `newer` (actuales) desde Cloudinary y las envía a Gemini (con el texto del prompt).
 
@@ -438,7 +425,7 @@ POST /users/{userId}/progress-photos/analyze
 | | |
 |---|---|
 | Auth | JWT + **coach** |
-| Respuesta | `200` — paginado de `MeResponseDto` |
+| Respuesta | `200` — paginado de `CoachAthleteListItemDto` (`id`, `email`, `profile`, `goal`, `currentWeightKg`, `coachTrainingProgram` enriquecido). No incluye `trainingProgram` / `subscription` / `coachQuota` |
 | Errores | `403` si el role no es coach |
 
 **Query**
@@ -465,17 +452,6 @@ POST /users/{userId}/progress-photos/analyze
 | `page` | Opcional | default `1` |
 | `limit` | Opcional | default `50`, máx. 100 |
 | `status` | Opcional | `pending` \| `accepted` \| `rejected` \| `cancelled` |
-
----
-
-### `GET /users/:id`
-
-| | |
-|---|---|
-| Auth | JWT |
-| Path | `id` — UUID del user |
-| Body | — |
-| Respuesta | `200` — `MeResponseDto` |
 
 ---
 
@@ -687,7 +663,7 @@ Requieren **JWT** con **role `admin`**.
 | | |
 |---|---|
 | Auth | JWT + **admin** |
-| Respuesta | `200` — `MeResponseDto` con el `plan` solicitado |
+| Respuesta | `200` — `{ id, email, role, subscription }` (slim; no es `MeResponseDto`) |
 | Errores | `403` si el role no es admin |
 
 **Body**
@@ -726,6 +702,21 @@ Athlete → suele usarse `premium`. Coach → `growth` o `pro` (`premium` en un 
 }
 ```
 
+**Respuesta**
+
+```json
+{
+  "id": "…",
+  "email": "athlete@example.com",
+  "role": "athlete",
+  "subscription": {
+    "plan": "premium",
+    "startedAt": "2026-08-10T20:00:00.000Z",
+    "expiresAt": "2026-09-09T20:00:00.000Z"
+  }
+}
+```
+
 ---
 
 ### `POST /admin/subscriptions/revoke`
@@ -733,7 +724,7 @@ Athlete → suele usarse `premium`. Coach → `growth` o `pro` (`premium` en un 
 | | |
 |---|---|
 | Auth | JWT + **admin** |
-| Respuesta | `200` — `MeResponseDto` con `subscription.plan: free` |
+| Respuesta | `200` — `{ id, email, role, subscription: { plan: free, startedAt: null, expiresAt: null } }` |
 | Errores | `403` si el role no es admin |
 
 **Body**
@@ -779,11 +770,9 @@ Códigos estables para i18n en el client (`code` + `message` EN de debug):
 |---|---|---|
 | `COACH_ATHLETE_QUOTA_FULL` | 403 | Coach invita con cupo lleno, o atleta acepta y el coach ya está al límite |
 | `EMAIL_NOT_AN_ATHLETE` | 409 | Invite a un email que ya es coach/admin (no athlete) |
-| `ATHLETE_NOT_FOUND_BY_EMAIL` | 404 | (legacy) Ya no se usa en invite; el atleta puede no existir aún |
 | `ATHLETE_HAS_PENDING_INVITE` | 409 | Ya hay una invite pending para ese email / athlete |
 | `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
 | `CURRENT_PASSWORD_INCORRECT` | 400 | `PATCH /users/me` con `newPassword` y contraseña actual incorrecta |
-| `AI_NOT_CONFIGURED` | 503 | Llamada a `AiService` sin `GEMINI_API_KEY` |
 | `AI_REQUEST_FAILED` | 502 | Error / respuesta vacía o JSON inválido de la IA |
 | `PAID_SUBSCRIPTION_REQUIRED` | 403 | `recommend` / `progress-photos/analyze` con plan free o pago vencido |
 
@@ -836,7 +825,7 @@ Growth (coach) ejemplo:
 | Módulo | Cantidad | Auth |
 |---|---|---|
 | Auth | 2 | público |
-| Exercises | 6 | público |
-| Users | 16 | JWT |
+| Exercises | 5 | público (+ recommend JWT + paid) |
+| Users | 17 | JWT |
 | Admin | 2 | JWT + admin (grant, revoke) |
-| **Total** | **27** | |
+| **Total** | **26** | |

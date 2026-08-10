@@ -21,18 +21,21 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
-import { MeResponseDto } from '../users/dto/me-response.dto';
 import { Role } from '../users/types/role.enum';
 import { AdminService } from './admin.service';
-import { GrantPremiumDto, grantPremiumSchema } from './dto/grant-premium.dto';
+import { AdminSubscriptionResponseDto } from './dto/admin-subscription-response.dto';
 import {
-  RevokePremiumDto,
-  revokePremiumSchema,
-} from './dto/revoke-premium.dto';
+  GrantSubscriptionDto,
+  grantSubscriptionSchema,
+} from './dto/grant-subscription.dto';
+import {
+  RevokeSubscriptionDto,
+  revokeSubscriptionSchema,
+} from './dto/revoke-subscription.dto';
 
 @ApiTags('admin')
 @Controller('admin')
-@UseGuards(JwtAuthGuard /* RolesGuard */)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.Admin)
 @ApiBearerAuth()
 export class AdminController {
@@ -45,34 +48,36 @@ export class AdminController {
     description:
       'Requires admin role. Body needs email + plan (premium | growth | pro). Default duration 30 days unless expiresAt/durationDays is set.',
   })
-  @ApiBody({ type: GrantPremiumDto })
-  @ApiOkResponse({ type: MeResponseDto })
+  @ApiBody({ type: GrantSubscriptionDto })
+  @ApiOkResponse({ type: AdminSubscriptionResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({ description: 'Requires admin role' })
   @ApiBadRequestResponse({ description: 'Invalid body' })
   @ApiNotFoundResponse({ description: 'User not found' })
-  grantPremium(
-    @Body(new JoiValidationPipe(grantPremiumSchema)) dto: GrantPremiumDto,
-  ): Promise<MeResponseDto> {
-    return this.adminService.grantPremium(dto);
+  grantSubscription(
+    @Body(new JoiValidationPipe(grantSubscriptionSchema))
+    dto: GrantSubscriptionDto,
+  ): Promise<AdminSubscriptionResponseDto> {
+    return this.adminService.grantSubscription(dto);
   }
 
   @Post('subscriptions/revoke')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Revoke premium subscription',
+    summary: 'Revoke paid subscription',
     description:
       'Requires admin role. Body needs email. Sets plan to free and clears dates.',
   })
-  @ApiBody({ type: RevokePremiumDto })
-  @ApiOkResponse({ type: MeResponseDto })
+  @ApiBody({ type: RevokeSubscriptionDto })
+  @ApiOkResponse({ type: AdminSubscriptionResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({ description: 'Requires admin role' })
   @ApiBadRequestResponse({ description: 'Invalid body' })
   @ApiNotFoundResponse({ description: 'User not found' })
-  revokePremium(
-    @Body(new JoiValidationPipe(revokePremiumSchema)) dto: RevokePremiumDto,
-  ): Promise<MeResponseDto> {
-    return this.adminService.revokePremium(dto);
+  revokeSubscription(
+    @Body(new JoiValidationPipe(revokeSubscriptionSchema))
+    dto: RevokeSubscriptionDto,
+  ): Promise<AdminSubscriptionResponseDto> {
+    return this.adminService.revokeSubscription(dto);
   }
 }

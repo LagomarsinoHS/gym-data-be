@@ -1,8 +1,8 @@
-export type ExcelLocale = 'es' | 'en';
+export type ExportLocale = 'es' | 'en';
 
-export const DEFAULT_EXCEL_LOCALE: ExcelLocale = 'es';
+export const DEFAULT_EXPORT_LOCALE: ExportLocale = 'es';
 
-export const EXCEL_TRAINING_PROGRAM_HEADERS = {
+export const TRAINING_PROGRAM_EXPORT_HEADERS = {
   es: {
     exercise: 'Ejercicio',
     sets: 'Series',
@@ -24,7 +24,7 @@ export const EXCEL_TRAINING_PROGRAM_HEADERS = {
     fileName: 'Training Programs',
   },
 } as const satisfies Record<
-  ExcelLocale,
+  ExportLocale,
   {
     exercise: string;
     sets: string;
@@ -38,9 +38,9 @@ export const EXCEL_TRAINING_PROGRAM_HEADERS = {
 >;
 
 /** Stable soft colors per catalog `category` (same key across sessions). */
-export type ExcelGroupTheme = { fillArgb: string; fontArgb: string };
+export type ExportGroupTheme = { fillArgb: string; fontArgb: string };
 
-export const EXCEL_CATEGORY_THEMES: Record<string, ExcelGroupTheme> = {
+export const EXPORT_CATEGORY_THEMES: Record<string, ExportGroupTheme> = {
   chest: { fillArgb: 'FFE2EFDA', fontArgb: 'FF548235' }, // green
   shoulders: { fillArgb: 'FFDDEBF7', fontArgb: 'FF2F5496' }, // blue
   'upper arms': { fillArgb: 'FFFCE4D6', fontArgb: 'FFC65911' }, // orange
@@ -53,21 +53,22 @@ export const EXCEL_CATEGORY_THEMES: Record<string, ExcelGroupTheme> = {
   cardio: { fillArgb: 'FFD5F5E3', fontArgb: 'FF196F3D' }, // mint
 };
 
-export const EXCEL_DEFAULT_CATEGORY_THEME: ExcelGroupTheme = {
+export const EXPORT_DEFAULT_CATEGORY_THEME: ExportGroupTheme = {
   fillArgb: 'FFF2F3F4',
   fontArgb: 'FF566573',
 };
 
-export function excelCategoryTheme(
+export function exportCategoryTheme(
   categoryKey: string | undefined,
-): ExcelGroupTheme {
+): ExportGroupTheme {
   if (!categoryKey || categoryKey === '__other__') {
-    return EXCEL_DEFAULT_CATEGORY_THEME;
+    return EXPORT_DEFAULT_CATEGORY_THEME;
   }
-  return EXCEL_CATEGORY_THEMES[categoryKey] ?? EXCEL_DEFAULT_CATEGORY_THEME;
+  return EXPORT_CATEGORY_THEMES[categoryKey] ?? EXPORT_DEFAULT_CATEGORY_THEME;
 }
 
-export const EXCEL_STYLE = {
+/** Shared visual tokens for Excel + PDF exports (ARGB; PDF converts via helper). */
+export const EXPORT_STYLE = {
   headerFillArgb: 'FF2E7D32',
   headerFontArgb: 'FFFFFFFF',
   sessionFillArgb: 'FFE8F5E9',
@@ -90,9 +91,9 @@ const CATEGORY_LABELS_ES: Record<string, string> = {
   waist: 'Cintura',
 };
 
-export function excelCategoryLabel(
+export function exportCategoryLabel(
   category: string | undefined,
-  locale: ExcelLocale,
+  locale: ExportLocale,
   fallbackOther: string,
 ): string {
   const key = category?.trim().toLowerCase();

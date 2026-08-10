@@ -28,9 +28,14 @@ export class AuthService {
     }
 
     const user = await this.usersService.create({
-      ...dto,
-      password: await this.hashingService.hash(dto.password),
       id: randomUUID(),
+      email: dto.email,
+      password: await this.hashingService.hash(dto.password),
+      role: dto.role,
+      profile: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+      },
     });
 
     if (user.role === Role.Athlete) {
@@ -40,12 +45,11 @@ export class AuthService {
       );
     }
 
-    const accessToken = await this.signAccessToken(user.id, user.role);
-
-    return { accessToken, user };
+    return { accessToken: await this.signAccessToken(user.id, user.role) };
   }
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
+    // findByEmail excludes soft-deleted (`deletedAt`) — treated as invalid credentials
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -59,11 +63,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const { password: _password, ...safeUser } = user.toObject();
-
-    const accessToken = await this.signAccessToken(user.id, user.role);
-
-    return { accessToken, user: safeUser };
+    return { accessToken: await this.signAccessToken(user.id, user.role) };
   }
 
   private signAccessToken(userId: string, role: Role): Promise<string> {

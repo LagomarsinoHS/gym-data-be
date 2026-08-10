@@ -8,7 +8,7 @@ import {
 export class GetCoachAthletesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     example: 'ana',
-    description: 'Search by firstName, lastName, or email',
+    description: 'Search by profile.firstName, profile.lastName, or email',
   })
   search?: string;
 }

@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
+import { AuthModule } from '../auth/auth.module';
 import { ExcelModule } from '../excel/excel.module';
 import { ExercisesModule } from '../exercises/exercises.module';
 import { HashingModule } from '../common/hashing/hashing.module';
@@ -21,6 +21,7 @@ import { UsersService } from './users.service';
       { name: User.name, schema: UserSchema },
       { name: Invite.name, schema: InviteSchema },
     ]),
+    forwardRef(() => AuthModule),
     forwardRef(() => ExercisesModule),
     ExcelModule,
     PdfModule,
@@ -30,12 +31,7 @@ import { UsersService } from './users.service';
     AiModule,
   ],
   controllers: [UsersController],
-  providers: [
-    UsersService,
-    UsersRepository,
-    InvitesRepository,
-    PaidSubscriptionGuard,
-  ],
+  providers: [UsersService, UsersRepository, InvitesRepository],
   exports: [UsersService],
 })
 export class UsersModule {}

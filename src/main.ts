@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
@@ -7,6 +8,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
   const logger = new Logger('HTTP');
 
   app.use(morgan('combined'));
@@ -18,7 +20,7 @@ async function bootstrap() {
     next();
   });
 
-  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  const corsOrigins = (configService.get<string>('CORS_ORIGINS') ?? '')
     .split(',')
     .map((origin) => origin.trim().replace(/\/$/, ''))
     .filter(Boolean);
@@ -29,17 +31,17 @@ async function bootstrap() {
     exposedHeaders: ['Content-Disposition', 'Content-Type'],
   });
 
-  const config = new DocumentBuilder()
+  const swagger = new DocumentBuilder()
     .setTitle('Gym Data API')
     .setDescription('API for gym exercises data')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, swagger);
   SwaggerModule.setup('docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(configService.get<number>('PORT') ?? 3000);
 }
 bootstrap().catch((error: unknown) => {
   console.error(error);

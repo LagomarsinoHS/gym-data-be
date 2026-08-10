@@ -42,6 +42,7 @@ import {
   MeTrainingProgramItemDto,
   PendingCoachInviteResponseDto,
 } from './dto/me-response.dto';
+import { CoachAthleteListItemDto } from './dto/coach-athlete-list-item.dto';
 import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
 import { OkResponseDto } from './dto/ok-response.dto';
 import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
@@ -51,7 +52,6 @@ import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
 import { UploadProgressPhotoDto } from './dto/upload-progress-photo.dto';
-import { DeleteProgressPhotoDto } from './dto/delete-progress-photo.dto';
 import { ProgressPhotosResponseDto } from './dto/progress-photos-response.dto';
 import {
   AnalyzeProgressPhotosDto,
@@ -61,12 +61,12 @@ import { currentYearMonth } from './utils/year-month';
 import { groupProgressPhotos } from './utils/group-progress-photos';
 import { cloneProgressPhotoMonths } from './utils/progress-photo-weight';
 import {
-  DEFAULT_EXCEL_LOCALE,
-  EXCEL_TRAINING_PROGRAM_HEADERS,
-  type ExcelLocale,
-} from '../excel/constants/excel-training-program-headers';
+  DEFAULT_EXPORT_LOCALE,
+  TRAINING_PROGRAM_EXPORT_HEADERS,
+  type ExportLocale,
+} from '../common/export/training-program-export-headers';
 import { ExcelService } from '../excel/excel.service';
-import type { AthleteTrainingProgramExport } from '../excel/types/athlete-training-program-export.type';
+import type { AthleteTrainingProgramExport } from '../common/export/athlete-training-program-export.type';
 import { PdfService } from '../pdf/pdf.service';
 import { ExercisesService } from '../exercises/exercises.service';
 import { Exercise } from '../exercises/schemas/exercise.schema';
@@ -99,12 +99,6 @@ const ALLOWED_PROGRESS_PHOTO_MIME_TYPES = new Set([
   'image/png',
   'image/webp',
 ]);
-
-/** Typed strings until IDE TS service picks up newer ApiErrorCode members. */
-const CURRENT_PASSWORD_INCORRECT: ApiErrorCode =
-  'CURRENT_PASSWORD_INCORRECT' as ApiErrorCode;
-const EMAIL_NOT_AN_ATHLETE: ApiErrorCode =
-  'EMAIL_NOT_AN_ATHLETE' as ApiErrorCode;
 
 const EXPORT_CONTENT_TYPES: Record<ExportCoachTrainingProgramFormat, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -173,8 +167,9 @@ export class UsersService {
   }
 
   /**
-   * Partial self-update: firstName and/or lastName and/or password.
+   * Partial self-update: profile fields, goal, and/or password.
    * Password change requires a valid currentPassword.
+   * Optional profile fields / goal accept `null` to clear.
    */
   async updateProfile(
     userId: string,
@@ -182,16 +177,40 @@ export class UsersService {
   ): Promise<MeResponseDto> {
     const user = await this.findByIdOrFail(userId);
     const patch: {
-      firstName?: string;
-      lastName?: string;
       password?: string;
+      goal?: string | null;
+      profile?: {
+        firstName?: string;
+        lastName?: string;
+        heightCm?: number | null;
+        sex?: string | null;
+        birthDate?: string | null;
+      };
     } = {};
 
-    if (dto.firstName !== undefined) {
-      patch.firstName = dto.firstName;
+    if (dto.profile) {
+      const profile: NonNullable<typeof patch.profile> = {};
+      if (dto.profile.firstName !== undefined) {
+        profile.firstName = dto.profile.firstName;
+      }
+      if (dto.profile.lastName !== undefined) {
+        profile.lastName = dto.profile.lastName;
+      }
+      if (dto.profile.heightCm !== undefined) {
+        profile.heightCm = dto.profile.heightCm;
+      }
+      if (dto.profile.sex !== undefined) {
+        profile.sex = dto.profile.sex;
+      }
+      if (dto.profile.birthDate !== undefined) {
+        profile.birthDate = dto.profile.birthDate;
+      }
+      if (Object.keys(profile).length > 0) {
+        patch.profile = profile;
+      }
     }
-    if (dto.lastName !== undefined) {
-      patch.lastName = dto.lastName;
+    if (dto.goal !== undefined) {
+      patch.goal = dto.goal;
     }
 
     if (dto.newPassword) {
@@ -202,7 +221,7 @@ export class UsersService {
       if (!valid) {
         throwApiError(
           HttpStatus.BAD_REQUEST,
-          CURRENT_PASSWORD_INCORRECT,
+          ApiErrorCode.CurrentPasswordIncorrect,
           'Current password is incorrect',
         );
       }
@@ -245,6 +264,7 @@ export class UsersService {
       coachTrainingProgram,
       progressPhotos: _progressPhotos,
       profilePhoto,
+      profile,
       ...safeUser
     } = user.toObject() as User & { password: string };
 
@@ -259,6 +279,14 @@ export class UsersService {
 
     return {
       ...safeUser,
+      profile: {
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        heightCm: profile.heightCm ?? null,
+        sex: profile.sex ?? null,
+        birthDate: profile.birthDate ?? null,
+      },
+      goal: user.goal ?? null,
       profilePhoto: this.toMeProfilePhoto(profilePhoto),
       coach: await this.resolveAssignedCoach(user.coachId),
       currentWeightKg: user.currentWeightKg ?? null,
@@ -314,7 +342,7 @@ export class UsersService {
 
     if (existingUser && existingUser.role !== Role.Athlete) {
       throwApiConflict(
-        EMAIL_NOT_AN_ATHLETE,
+        ApiErrorCode.EmailNotAnAthlete,
         'That email belongs to a non-athlete account',
       );
     }
@@ -425,16 +453,47 @@ export class UsersService {
     page: number,
     limit: number,
     search?: string,
-  ): Promise<{ data: MeResponseDto[]; total: number }> {
+  ): Promise<{ data: CoachAthleteListItemDto[]; total: number }> {
     const skip = (page - 1) * limit;
     const [athletes, total] = await Promise.all([
       this.usersRepository.findAthletesByCoachId(coachId, skip, limit, search),
       this.usersRepository.countAthletesByCoachId(coachId, search),
     ]);
 
-    const data = await Promise.all(
-      athletes.map((athlete) => this.getEnrichedUserById(athlete.id)),
-    );
+    const exerciseIds = new Set<string>();
+    for (const athlete of athletes) {
+      for (const session of athlete.coachTrainingProgram ?? []) {
+        for (const item of session.items ?? []) {
+          exerciseIds.add(item.exerciseId);
+        }
+      }
+    }
+
+    const catalog = await this.exercisesService.getExercisesByIds([
+      ...exerciseIds,
+    ]);
+    const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]));
+
+    const data: CoachAthleteListItemDto[] = athletes.map((athlete) => {
+      const { profile } = athlete;
+      return {
+        id: athlete.id,
+        email: athlete.email,
+        goal: athlete.goal ?? null,
+        profile: {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          heightCm: profile.heightCm ?? null,
+          sex: profile.sex ?? null,
+          birthDate: profile.birthDate ?? null,
+        },
+        currentWeightKg: athlete.currentWeightKg ?? null,
+        coachTrainingProgram: this.enrichCoachTrainingProgram(
+          athlete.coachTrainingProgram ?? [],
+          byId,
+        ),
+      };
+    });
 
     return { data, total };
   }
@@ -474,8 +533,8 @@ export class UsersService {
         respondedAt: invite.respondedAt ?? null,
         athlete: athlete
           ? {
-              firstName: athlete.firstName,
-              lastName: athlete.lastName,
+              firstName: athlete.profile.firstName,
+              lastName: athlete.profile.lastName,
             }
           : null,
       };
@@ -513,7 +572,7 @@ export class UsersService {
     coachId: string,
     dto: ExportCoachTrainingProgramDto,
   ): Promise<CoachTrainingProgramExportFile> {
-    const locale = dto.locale ?? DEFAULT_EXCEL_LOCALE;
+    const locale = dto.locale ?? DEFAULT_EXPORT_LOCALE;
     // Avoid reading `dto.format` directly: some IDE TS programs resolve that
     // property as `error` and poison @typescript-eslint no-unsafe-* rules.
     const exportFormat: ExportCoachTrainingProgramFormat =
@@ -567,8 +626,8 @@ export class UsersService {
 
       files.push({
         filename: this.toExportFilename(
-          athlete.firstName,
-          athlete.lastName,
+          athlete.profile.firstName,
+          athlete.profile.lastName,
           exportFormat,
         ),
         buffer,
@@ -588,7 +647,7 @@ export class UsersService {
       : {
           buffer: await this.zipService.buildZip(files),
           contentType: 'application/zip',
-          filename: `${EXCEL_TRAINING_PROGRAM_HEADERS[locale].fileName}.zip`,
+          filename: `${TRAINING_PROGRAM_EXPORT_HEADERS[locale].fileName}.zip`,
         };
   }
 
@@ -646,22 +705,21 @@ export class UsersService {
   async grantSubscription(
     userId: string,
     plan: GrantableSubscriptionPlan,
+    startedAt: Date,
     expiresAt: Date,
-  ): Promise<MeResponseDto> {
+  ): Promise<void> {
     await this.findByIdOrFail(userId);
     await this.usersRepository.setPaidSubscription(
       userId,
       plan,
-      new Date(),
+      startedAt,
       expiresAt,
     );
-    return this.getEnrichedUserById(userId);
   }
 
-  async revokeSubscription(userId: string): Promise<MeResponseDto> {
+  async revokeSubscription(userId: string): Promise<void> {
     await this.findByIdOrFail(userId);
     await this.usersRepository.clearSubscriptionToFree(userId);
-    return this.getEnrichedUserById(userId);
   }
 
   // STORAGE
@@ -776,68 +834,6 @@ export class UsersService {
     };
   }
 
-  async deleteProgressPhoto(
-    athleteId: string,
-    dto: DeleteProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    const user = await this.findByIdOrFail(athleteId);
-    const { yearMonth, side } = dto;
-
-    const progressPhotos = cloneProgressPhotoMonths(user.progressPhotos);
-
-    const monthIndex = progressPhotos.findIndex(
-      (entry) => entry.yearMonth === yearMonth,
-    );
-    if (monthIndex < 0) {
-      throw new NotFoundException(`No progress photos for month ${yearMonth}`);
-    }
-
-    const month = progressPhotos[monthIndex];
-
-    if (side) {
-      const existing = month[side];
-      if (!existing) {
-        throw new NotFoundException(
-          `No ${side} progress photo for month ${yearMonth}`,
-        );
-      }
-
-      await this.storageService.deleteImage(existing.publicId, {
-        ignoreNotFound: true,
-      });
-      month[side] = null;
-
-      if (!month.front && !month.back) {
-        month.weightKg = null;
-        progressPhotos.splice(monthIndex, 1);
-        await this.storageService.deleteFolder(
-          progressPhotoFolder(athleteId, yearMonth),
-        );
-      }
-    } else {
-      await this.storageService.deleteFolder(
-        progressPhotoFolder(athleteId, yearMonth),
-      );
-      progressPhotos.splice(monthIndex, 1);
-      month.front = null;
-      month.back = null;
-      month.weightKg = null;
-    }
-
-    await this.usersRepository.setProgressPhotos(athleteId, progressPhotos);
-
-    return {
-      yearMonth,
-      weightKg: month.weightKg ?? null,
-      front: month.front
-        ? { url: month.front.url, uploadedAt: month.front.uploadedAt }
-        : null,
-      back: month.back
-        ? { url: month.back.url, uploadedAt: month.back.uploadedAt }
-        : null,
-    };
-  }
-
   async getProgressPhotos(
     requester: { userId: string; role: Role },
     targetUserId: string,
@@ -860,13 +856,20 @@ export class UsersService {
 
   /**
    * AI analysis of two progress months (front + back Cloudinary URLs).
-   * Coach + paid subscription enforced by guards.
+   * Coach + paid subscription enforced by guards; coach must own the athlete.
    */
   async analyzeProgressPhotos(
+    coachId: string,
     athleteId: string,
     dto: AnalyzeProgressPhotosDto,
   ): Promise<AnalyzeProgressPhotosResponseDto> {
     const athlete = await this.findByIdOrFail(athleteId);
+
+    if (athlete.role !== Role.Athlete || athlete.coachId !== coachId) {
+      throw new ForbiddenException(
+        'You can only analyze progress photos of your athletes',
+      );
+    }
 
     const [firstYearMonth, secondYearMonth] = dto.yearMonths;
     const olderYearMonth =
@@ -992,7 +995,7 @@ export class UsersService {
 
   private enrichPendingCoachInvite(
     invite: Pick<Invite, 'coachId' | 'invitedAt'> | null | undefined,
-    coach: Pick<User, 'firstName' | 'lastName'> | null,
+    coach: Pick<User, 'profile'> | null,
   ): MePendingCoachInviteDto | null {
     if (!invite || !coach) return null;
 
@@ -1000,8 +1003,8 @@ export class UsersService {
       coachId: invite.coachId,
       invitedAt: invite.invitedAt,
       coach: {
-        firstName: coach.firstName,
-        lastName: coach.lastName,
+        firstName: coach.profile.firstName,
+        lastName: coach.profile.lastName,
       },
     };
   }
@@ -1013,8 +1016,8 @@ export class UsersService {
     const coach = await this.usersRepository.findById(coachId);
     if (!coach) return null;
     return {
-      firstName: coach.firstName,
-      lastName: coach.lastName,
+      firstName: coach.profile.firstName,
+      lastName: coach.profile.lastName,
     };
   }
 
@@ -1083,13 +1086,13 @@ export class UsersService {
   }
 
   private toAthleteTrainingProgramExport(
-    athlete: Pick<User, 'firstName' | 'lastName' | 'coachTrainingProgram'>,
+    athlete: Pick<User, 'profile' | 'coachTrainingProgram'>,
     byId: Map<string, Exercise>,
-    locale: ExcelLocale,
+    locale: ExportLocale,
   ): AthleteTrainingProgramExport {
     return {
-      firstName: athlete.firstName,
-      lastName: athlete.lastName,
+      firstName: athlete.profile.firstName,
+      lastName: athlete.profile.lastName,
       coachTrainingProgram: athlete.coachTrainingProgram.map((program) => ({
         id: program.id,
         name: program.name,

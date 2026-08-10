@@ -10,6 +10,6 @@ export class LoginDto {
 }
 
 export const loginSchema = Joi.object<LoginDto>({
-  email: Joi.string().trim().email().required(),
+  email: Joi.string().trim().lowercase().email().required(),
   password: Joi.string().min(4).required(),
 });

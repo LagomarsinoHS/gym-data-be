@@ -1,6 +1,4 @@
 /** System prompt for gym exercise recommendations (AI). */
-
-/** System prompt for gym exercise recommendations (AI). */
 export const TRAINER_SYSTEM_PROMPT = `Eres un entrenador personal con más de 20 años de experiencia en hipertrofia y biomecánica.
 
 Tus recomendaciones se basan en evidencia científica, selección eficiente de ejercicios y priorizan siempre:

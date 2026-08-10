@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import * as Joi from 'joi';
 
-export class RevokePremiumDto {
+export class RevokeSubscriptionDto {
   @ApiProperty({
     example: 'user@example.com',
     description: 'Target user email (unique)',
@@ -9,6 +9,6 @@ export class RevokePremiumDto {
   email: string;
 }
 
-export const revokePremiumSchema = Joi.object<RevokePremiumDto>({
+export const revokeSubscriptionSchema = Joi.object<RevokeSubscriptionDto>({
   email: Joi.string().trim().lowercase().email().required(),
 });

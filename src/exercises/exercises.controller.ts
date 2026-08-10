@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -10,6 +10,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
 import { PaginatedResponse } from '../common/dto/paginated-response';
 import { JoiValidationPipe } from '../common/pipes/joi-validation.pipe';
 import { ExerciseLabelsResponseDto } from './dto/exercise-labels-response.dto';
@@ -61,7 +63,7 @@ export class ExercisesController {
 
   @Get('recommend')
   @ApiBearerAuth()
-  //@UseGuards(JwtAuthGuard, PaidSubscriptionGuard)
+  @UseGuards(JwtAuthGuard, PaidSubscriptionGuard)
   @ApiOperation({
     summary: 'AI recommend: 4 exercises + explanation note',
     description:

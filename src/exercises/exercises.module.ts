@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { PaidSubscriptionGuard } from '../auth/guards/paid-subscription.guard';
+import { AuthModule } from '../auth/auth.module';
 import { AiModule } from '../ai/ai.module';
 import { UsersModule } from '../users/users.module';
 import { ExercisesController } from './exercises.controller';
@@ -14,10 +14,12 @@ import { Exercise, ExerciseSchema } from './schemas/exercise.schema';
       { name: Exercise.name, schema: ExerciseSchema },
     ]),
     AiModule,
+    // UsersModule: PaidSubscriptionGuard → UsersService (via Auth, cycle with Users↔Exercises)
     forwardRef(() => UsersModule),
+    forwardRef(() => AuthModule),
   ],
   controllers: [ExercisesController],
-  providers: [ExercisesService, ExercisesRepository, PaidSubscriptionGuard],
+  providers: [ExercisesService, ExercisesRepository],
   exports: [ExercisesService],
 })
 export class ExercisesModule {}

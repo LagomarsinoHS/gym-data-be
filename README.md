@@ -54,11 +54,11 @@ npm run start:dev
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud | … |
 | `CLOUDINARY_API_KEY` | Cloudinary API key | … |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret | … |
-| `GEMINI_API_KEY` | API key Gemini (opcional) | `…` |
-| `GEMINI_MODEL` | Modelo por defecto | `gemini-2.0-flash` |
+| `GEMINI_API_KEY` | API key Gemini (**required**) | `…` |
+| `GEMINI_MODEL` | Modelo por defecto | `gemini-3.6-flash` |
 
 > No subas el `.env`. Está en `.gitignore`.  
-> `GEMINI_*` es opcional: la app arranca sin key; fallan solo las llamadas a `AiService` (`AI_NOT_CONFIGURED`).
+> Sin `GEMINI_API_KEY` la app **no arranca** (validación en boot). Errores de llamada → `AI_REQUEST_FAILED`.
 
 ```env
 PORT=3000
@@ -70,8 +70,8 @@ CORS_ORIGINS=http://127.0.0.1:5500,http://localhost:5500
 CLOUDINARY_CLOUD_NAME=...
 CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
 ## Scripts

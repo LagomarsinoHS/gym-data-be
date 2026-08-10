@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
+import { groupTrainingProgramItemsByCategory } from '../common/export/group-training-program-items';
 import {
-  DEFAULT_EXCEL_LOCALE,
-  EXCEL_STYLE,
-  EXCEL_TRAINING_PROGRAM_HEADERS,
-  excelCategoryLabel,
-  excelCategoryTheme,
-  type ExcelGroupTheme,
-  type ExcelLocale,
-} from './constants/excel-training-program-headers';
+  DEFAULT_EXPORT_LOCALE,
+  EXPORT_STYLE,
+  TRAINING_PROGRAM_EXPORT_HEADERS,
+  exportCategoryTheme,
+  type ExportGroupTheme,
+  type ExportLocale,
+} from '../common/export/training-program-export-headers';
 import type {
   AthleteTrainingProgramExport,
-  ExcelTrainingProgramItem,
-} from './types/athlete-training-program-export.type';
+  TrainingProgramExportItem,
+} from '../common/export/athlete-training-program-export.type';
 
 type SoftBorder = Partial<ExcelJS.Borders>;
 
@@ -26,7 +26,7 @@ export class ExcelService {
    */
   async buildAthleteTrainingProgramWorkbook(
     data: AthleteTrainingProgramExport,
-    locale: ExcelLocale = DEFAULT_EXCEL_LOCALE,
+    locale: ExportLocale = DEFAULT_EXPORT_LOCALE,
   ): Promise<Buffer | null> {
     const coachTrainingProgram = [...data.coachTrainingProgram].sort(
       (a, b) => a.order - b.order,
@@ -35,7 +35,7 @@ export class ExcelService {
       return null;
     }
 
-    const headers = EXCEL_TRAINING_PROGRAM_HEADERS[locale];
+    const headers = TRAINING_PROGRAM_EXPORT_HEADERS[locale];
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'ExerciseDB';
     workbook.created = new Date();
@@ -64,7 +64,7 @@ export class ExcelService {
       const items = [...program.items].sort(
         (a, b) => (a.order ?? 0) - (b.order ?? 0),
       );
-      const groups = this.groupItemsByCategory(
+      const groups = groupTrainingProgramItemsByCategory(
         items,
         locale,
         headers.otherGroup,
@@ -73,7 +73,7 @@ export class ExcelService {
       let totalSets = 0;
 
       for (const group of groups) {
-        const theme = excelCategoryTheme(group.key);
+        const theme = exportCategoryTheme(group.key);
         row = this.writeGroupHeader(sheet, row, group.label, theme);
 
         for (const item of group.items) {
@@ -121,7 +121,7 @@ export class ExcelService {
   private writeHeaderRow(
     sheet: ExcelJS.Worksheet,
     row: number,
-    headers: (typeof EXCEL_TRAINING_PROGRAM_HEADERS)[ExcelLocale],
+    headers: (typeof TRAINING_PROGRAM_EXPORT_HEADERS)[ExportLocale],
   ): number {
     const values = [
       headers.exercise,
@@ -135,16 +135,16 @@ export class ExcelService {
     excelRow.height = 22;
     excelRow.font = {
       bold: true,
-      color: { argb: EXCEL_STYLE.headerFontArgb },
+      color: { argb: EXPORT_STYLE.headerFontArgb },
       size: 11,
     };
     excelRow.alignment = { vertical: 'middle', horizontal: 'center' };
     excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      if (colNumber > EXCEL_STYLE.lastCol) return;
+      if (colNumber > EXPORT_STYLE.lastCol) return;
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: EXCEL_STYLE.headerFillArgb },
+        fgColor: { argb: EXPORT_STYLE.headerFillArgb },
       };
       cell.border = this.softBorder();
       if (colNumber === 1) {
@@ -160,7 +160,7 @@ export class ExcelService {
     sessionName: string,
   ): number {
     const endRow = row + 1;
-    sheet.mergeCells(row, 1, endRow, EXCEL_STYLE.lastCol);
+    sheet.mergeCells(row, 1, endRow, EXPORT_STYLE.lastCol);
 
     const cell = sheet.getCell(row, 1);
     cell.value = sessionName.toUpperCase();
@@ -169,18 +169,18 @@ export class ExcelService {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: EXCEL_STYLE.sessionFillArgb },
+      fgColor: { argb: EXPORT_STYLE.sessionFillArgb },
     };
 
     // Paint + border both physical rows of the merge
     for (let r = row; r <= endRow; r++) {
       sheet.getRow(r).height = 22;
-      for (let col = 1; col <= EXCEL_STYLE.lastCol; col++) {
+      for (let col = 1; col <= EXPORT_STYLE.lastCol; col++) {
         const c = sheet.getCell(r, col);
         c.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: EXCEL_STYLE.sessionFillArgb },
+          fgColor: { argb: EXPORT_STYLE.sessionFillArgb },
         };
         c.border = this.softBorder();
       }
@@ -193,9 +193,9 @@ export class ExcelService {
     sheet: ExcelJS.Worksheet,
     row: number,
     label: string,
-    theme: ExcelGroupTheme,
+    theme: ExportGroupTheme,
   ): number {
-    sheet.mergeCells(row, 1, row, EXCEL_STYLE.lastCol);
+    sheet.mergeCells(row, 1, row, EXPORT_STYLE.lastCol);
     const cell = sheet.getCell(row, 1);
     cell.value = label;
     cell.font = { bold: true, size: 11, color: { argb: theme.fontArgb } };
@@ -213,7 +213,7 @@ export class ExcelService {
   private writeExerciseRow(
     sheet: ExcelJS.Worksheet,
     row: number,
-    item: ExcelTrainingProgramItem,
+    item: TrainingProgramExportItem,
   ): number {
     const notes = item.notes ?? '';
     const excelRow = sheet.getRow(row);
@@ -226,7 +226,7 @@ export class ExcelService {
     ];
     excelRow.height = this.notesRowHeight(notes);
     excelRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-      if (colNumber > EXCEL_STYLE.lastCol) return;
+      if (colNumber > EXPORT_STYLE.lastCol) return;
       cell.border = this.softBorder();
       const isNotes = colNumber === 5;
       cell.alignment = {
@@ -261,7 +261,7 @@ export class ExcelService {
     labelCell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: EXCEL_STYLE.totalFillArgb },
+      fgColor: { argb: EXPORT_STYLE.totalFillArgb },
     };
 
     const totalCell = sheet.getCell(row, 5);
@@ -271,7 +271,7 @@ export class ExcelService {
     totalCell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: EXCEL_STYLE.totalFillArgb },
+      fgColor: { argb: EXPORT_STYLE.totalFillArgb },
     };
 
     this.applyRowBorder(sheet, row);
@@ -279,50 +279,16 @@ export class ExcelService {
     return row + 1;
   }
 
-  private groupItemsByCategory(
-    items: ExcelTrainingProgramItem[],
-    locale: ExcelLocale,
-    otherLabel: string,
-  ): { key: string; label: string; items: ExcelTrainingProgramItem[] }[] {
-    const groups: {
-      key: string;
-      label: string;
-      items: ExcelTrainingProgramItem[];
-    }[] = [];
-    const indexByKey = new Map<string, number>();
-
-    for (const item of items) {
-      const key = item.category?.trim().toLowerCase() || '__other__';
-      let index = indexByKey.get(key);
-      if (index === undefined) {
-        index = groups.length;
-        indexByKey.set(key, index);
-        groups.push({
-          key,
-          label: excelCategoryLabel(
-            key === '__other__' ? undefined : item.category,
-            locale,
-            otherLabel,
-          ),
-          items: [],
-        });
-      }
-      groups[index].items.push(item);
-    }
-
-    return groups;
-  }
-
   private softBorder(): SoftBorder {
     const edge: Partial<ExcelJS.Border> = {
       style: 'thin',
-      color: { argb: EXCEL_STYLE.softBorderArgb },
+      color: { argb: EXPORT_STYLE.softBorderArgb },
     };
     return { top: edge, left: edge, bottom: edge, right: edge };
   }
 
   private applyRowBorder(sheet: ExcelJS.Worksheet, row: number): void {
-    for (let col = 1; col <= EXCEL_STYLE.lastCol; col++) {
+    for (let col = 1; col <= EXPORT_STYLE.lastCol; col++) {
       sheet.getCell(row, col).border = this.softBorder();
     }
   }

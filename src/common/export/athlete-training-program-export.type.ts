@@ -1,4 +1,4 @@
-export type ExcelTrainingProgramItem = {
+export type TrainingProgramExportItem = {
   exerciseId: string;
   order?: number;
   sets?: number;
@@ -11,16 +11,16 @@ export type ExcelTrainingProgramItem = {
   category?: string;
 };
 
-export type ExcelCoachTrainingProgram = {
+export type CoachTrainingProgramExport = {
   id: string;
   name: string;
   order: number;
-  items: ExcelTrainingProgramItem[];
+  items: TrainingProgramExportItem[];
 };
 
-/** Input for building one athlete workbook (no Nest/users coupling). */
+/** Input for building one athlete workbook/PDF (no Nest/users coupling). */
 export type AthleteTrainingProgramExport = {
   firstName: string;
   lastName: string;
-  coachTrainingProgram: ExcelCoachTrainingProgram[];
+  coachTrainingProgram: CoachTrainingProgramExport[];
 };

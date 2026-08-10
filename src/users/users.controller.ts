@@ -70,6 +70,7 @@ import {
   getCoachInvitesQuerySchema,
 } from './dto/get-coach-invites-query.dto';
 import { CoachInviteListItemDto } from './dto/coach-invite-list-item.dto';
+import { CoachAthleteListItemDto } from './dto/coach-athlete-list-item.dto';
 import {
   MeResponseDto,
   PendingCoachInviteResponseDto,
@@ -96,10 +97,6 @@ import {
   UploadProgressPhotoDto,
   uploadProgressPhotoSchema,
 } from './dto/upload-progress-photo.dto';
-import {
-  DeleteProgressPhotoDto,
-  deleteProgressPhotoSchema,
-} from './dto/delete-progress-photo.dto';
 import {
   DeleteAccountDto,
   deleteAccountSchema,
@@ -153,7 +150,8 @@ export class UsersController {
   @Roles(Role.Coach)
   @ApiOperation({
     summary: 'List athletes assigned to the authenticated coach',
-    description: 'Optional search matches firstName, lastName, or email.',
+    description:
+      'Optional search matches profile.firstName, profile.lastName, or email.',
   })
   @ApiOkResponse({ type: PaginatedResponse })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
@@ -162,7 +160,7 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
     @Query(new JoiValidationPipe(getCoachAthletesQuerySchema))
     query: GetCoachAthletesQueryDto,
-  ): Promise<PaginatedResponse<MeResponseDto>> {
+  ): Promise<PaginatedResponse<CoachAthleteListItemDto>> {
     const { data, total } = await this.usersService.getCoachAthletes(
       user.userId,
       query.page,
@@ -244,27 +242,20 @@ export class UsersController {
   @ApiOkResponse({ type: AnalyzeProgressPhotosResponseDto })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
   @ApiForbiddenResponse({
-    description: 'Requires coach role and paid subscription',
+    description:
+      'Requires coach role, paid subscription, and assigned coach for the athlete',
   })
   @ApiBadRequestResponse({
     description: 'Invalid months or month entries not found',
   })
   @ApiNotFoundResponse({ description: 'Athlete not found' })
   analyzeProgressPhotos(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('userId') userId: string,
     @Body(new JoiValidationPipe(analyzeProgressPhotosSchema))
     dto: AnalyzeProgressPhotosDto,
   ): Promise<AnalyzeProgressPhotosResponseDto> {
-    return this.usersService.analyzeProgressPhotos(userId, dto);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a user by id' })
-  @ApiParam({ name: 'id', example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  getUser(@Param('id') id: string): Promise<MeResponseDto> {
-    return this.usersService.getEnrichedUserById(id);
+    return this.usersService.analyzeProgressPhotos(user.userId, userId, dto);
   }
 
   // --- POST ---
@@ -465,7 +456,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Update the authenticated user profile',
     description:
-      'Partial update. Send at least one of `firstName`, `lastName`, or `newPassword`. Password change requires `currentPassword` + matching `confirmNewPassword`.',
+      'Partial update. Send at least one of: profile (firstName/lastName/heightCm/sex/birthDate), goal, or newPassword. Optional profile fields and goal accept null to clear. Password change requires currentPassword + matching confirmNewPassword.',
   })
   @ApiBody({ type: UpdateProfileDto })
   @ApiOkResponse({ type: MeResponseDto })
@@ -586,27 +577,5 @@ export class UsersController {
     dto: DeleteAccountDto,
   ): Promise<OkResponseDto> {
     return this.usersService.softDeleteAccount(user.userId, dto.email);
-  }
-
-  @Delete('me/progress-photos')
-  @Roles(Role.Athlete)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Delete a progress photo or a whole month',
-    description:
-      'Athlete only. Body: `yearMonth` (YYYY-MM) required. Optional `side` (`front` | `back`): if omitted, deletes front + back and the Cloudinary month folder; if set, deletes only that side (and the folder when both sides become empty).',
-  })
-  @ApiBody({ type: DeleteProgressPhotoDto })
-  @ApiOkResponse({ type: UploadProgressPhotoResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({ description: 'Requires athlete role' })
-  @ApiBadRequestResponse({ description: 'Invalid yearMonth or side' })
-  @ApiNotFoundResponse({ description: 'User, month, or side photo not found' })
-  deleteProgressPhoto(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(deleteProgressPhotoSchema))
-    dto: DeleteProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    return this.usersService.deleteProgressPhoto(user.userId, dto);
   }
 }

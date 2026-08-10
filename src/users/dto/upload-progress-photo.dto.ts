@@ -2,11 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import * as Joi from 'joi';
 import { currentYearMonth } from '../utils/year-month';
 
-export enum ProgressPhotoSide {
-  Front = 'front',
-  Back = 'back',
-}
-
 export class UploadProgressPhotoDto {
   @ApiProperty({
     example: 72.5,
