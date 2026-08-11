@@ -647,7 +647,7 @@ Copia la plantilla al plan de uno o más alumnos como sesión nueva. El **id de 
 | | |
 |---|---|
 | Auth | JWT + **coach** |
-| Respuesta | `200` — `{ applied: string[], skipped: string[], failed: string[] }` |
+| Respuesta | `200` — `{ applied: string[], skipped: string[], failed: string[], session }` |
 | Errores | `404` plantilla inexistente; `403` si no es coach |
 
 **Body**
@@ -657,6 +657,8 @@ Copia la plantilla al plan de uno o más alumnos como sesión nueva. El **id de 
 | `athleteIds` | Obligatorio | 1–50 ids; duplicados se ignoran |
 
 `failed` = athlete no existe / no es athlete / no es tuyo.
+
+`session` = copia enriquecida de la sesión (misma forma que un ítem de `coachTrainingProgram`). Es la misma payload para todos los alumnos; en DB cada uno recibe `order = length` de su plan al aplicar.
 
 ---
 

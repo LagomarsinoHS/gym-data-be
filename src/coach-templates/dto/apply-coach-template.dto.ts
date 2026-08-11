@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import * as Joi from 'joi';
+import { MeCoachTrainingProgramDto } from '../../users/dto/me-response.dto';
 
 export class ApplyCoachTemplateDto {
   @ApiProperty({
@@ -25,6 +26,13 @@ export class ApplyCoachTemplateResponseDto {
     description: 'Athlete ids that could not be updated (missing / not yours)',
   })
   failed: string[];
+
+  @ApiProperty({
+    type: MeCoachTrainingProgramDto,
+    description:
+      'Enriched session copy that was (or would be) appended. Same for all athletes; each athlete gets order = their plan length at apply time.',
+  })
+  session: MeCoachTrainingProgramDto;
 }
 
 export const applyCoachTemplateSchema = Joi.object<ApplyCoachTemplateDto>({

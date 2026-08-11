@@ -94,7 +94,7 @@ export class CoachTemplatesController {
   @ApiOperation({
     summary: 'Apply a template to one or more athletes',
     description:
-      'Copies the template as a new session onto each athlete plan. Session id matches the template id; athletes that already have it are skipped.',
+      'Copies the template as a new session onto each athlete plan. Session id matches the template id; athletes that already have it are skipped. Response includes the enriched session payload for clients to sync local plan state.',
   })
   @ApiParam({ name: 'id', description: 'Template id' })
   @ApiBody({ type: ApplyCoachTemplateDto })

@@ -84,7 +84,12 @@ export class CoachTemplatesService {
     coachId: string,
     templateId: string,
     dto: ApplyCoachTemplateDto,
-  ): Promise<{ applied: string[]; skipped: string[]; failed: string[] }> {
+  ): Promise<{
+    applied: string[];
+    skipped: string[];
+    failed: string[];
+    session: MeCoachTrainingProgramDto;
+  }> {
     const coach = await this.findCoachOrFail(coachId);
     const template = (coach.coachTemplates ?? []).find(
       (t) => t.id === templateId,
@@ -94,6 +99,7 @@ export class CoachTemplatesService {
     }
 
     const sessionSeed = this.toPersistableSession(template);
+    const [session] = await this.enrichTemplates([sessionSeed]);
     const athleteIds = [
       ...new Set(dto.athleteIds.map((id) => id.trim()).filter(Boolean)),
     ];
@@ -116,7 +122,7 @@ export class CoachTemplatesService {
       }
 
       const program = [...(athlete.coachTrainingProgram ?? [])];
-      if (program.some((session) => session.id === templateId)) {
+      if (program.some((s) => s.id === templateId)) {
         skipped.push(athleteId);
         continue;
       }
@@ -132,7 +138,7 @@ export class CoachTemplatesService {
       applied.push(athleteId);
     }
 
-    return { applied, skipped, failed };
+    return { applied, skipped, failed, session };
   }
 
   private toPersistableSession(
