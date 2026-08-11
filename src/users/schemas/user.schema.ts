@@ -282,10 +282,10 @@ export class User {
   deletedAt?: Date;
 
   @ApiProperty({ example: '2026-07-28T22:35:00.000Z' })
-  createdAt?: Date;
+  createdAt: Date;
 
   @ApiProperty({ example: '2026-07-28T22:35:00.000Z' })
-  updatedAt?: Date;
+  updatedAt: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

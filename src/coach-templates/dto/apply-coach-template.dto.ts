@@ -7,14 +7,14 @@ export class ApplyCoachTemplateDto {
     type: [String],
     example: ['template-uuid-1', 'template-uuid-2'],
     description:
-      'Template ids to copy (1–50). Session id on the athlete plan matches the template id.',
+      'Template ids to copy (1-50). Session id on the athlete plan matches the template id.',
   })
   templateIds: string[];
 
   @ApiProperty({
     type: [String],
     example: ['athlete-uuid-1', 'athlete-uuid-2'],
-    description: 'Athletes that should receive the templates (1–50).',
+    description: 'Athletes that should receive the templates (1-50).',
   })
   athleteIds: string[];
 }

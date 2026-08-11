@@ -331,15 +331,17 @@ export class UsersRepository {
       await Promise.all([
         this.userModel.countDocuments(NOT_DELETED).exec(),
         this.userModel
-          .aggregate<{ _id: string; count: number }>([
+          .aggregate<{ role: Role; count: number }>([
             { $match: NOT_DELETED },
             { $group: { _id: '$role', count: { $sum: 1 } } },
+            { $project: { _id: 0, role: '$_id', count: 1 } },
           ])
           .exec(),
         this.userModel
-          .aggregate<{ _id: string; count: number }>([
+          .aggregate<{ plan: SubscriptionPlan; count: number }>([
             { $match: NOT_DELETED },
             { $group: { _id: '$subscription.plan', count: { $sum: 1 } } },
+            { $project: { _id: 0, plan: '$_id', count: 1 } },
           ])
           .exec(),
         this.userModel
@@ -359,17 +361,18 @@ export class UsersRepository {
 
     const byRole = { athlete: 0, coach: 0, admin: 0 };
     for (const row of roleRows) {
-      if (row._id === Role.Athlete) byRole.athlete = row.count;
-      else if (row._id === Role.Coach) byRole.coach = row.count;
-      else if (row._id === Role.Admin) byRole.admin = row.count;
+      if (row.role === Role.Athlete) byRole.athlete = row.count;
+      else if (row.role === Role.Coach) byRole.coach = row.count;
+      else if (row.role === Role.Admin) byRole.admin = row.count;
     }
 
     const byPlan = { free: 0, premium: 0, growth: 0, pro: 0 };
     for (const row of planRows) {
-      if (row._id === SubscriptionPlan.Free) byPlan.free = row.count;
-      else if (row._id === SubscriptionPlan.Premium) byPlan.premium = row.count;
-      else if (row._id === SubscriptionPlan.Growth) byPlan.growth = row.count;
-      else if (row._id === SubscriptionPlan.Pro) byPlan.pro = row.count;
+      if (row.plan === SubscriptionPlan.Free) byPlan.free = row.count;
+      else if (row.plan === SubscriptionPlan.Premium)
+        byPlan.premium = row.count;
+      else if (row.plan === SubscriptionPlan.Growth) byPlan.growth = row.count;
+      else if (row.plan === SubscriptionPlan.Pro) byPlan.pro = row.count;
     }
 
     return {
@@ -414,25 +417,24 @@ export class UsersRepository {
     plan?: SubscriptionPlan;
     expiringSoon?: boolean;
   }): Record<string, unknown> {
+    // Free plans never expire as paid — no rows can match both.
+    if (filters.expiringSoon && filters.plan === SubscriptionPlan.Free) {
+      return { ...NOT_DELETED, id: { $in: [] } };
+    }
+
     const filter: Record<string, unknown> = { ...NOT_DELETED };
 
     if (filters.role) filter.role = filters.role;
-    if (filters.plan) filter['subscription.plan'] = filters.plan;
 
     if (filters.expiringSoon) {
       const now = new Date();
       const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      filter['subscription.plan'] = { $ne: SubscriptionPlan.Free };
+      filter['subscription.plan'] = filters.plan ?? {
+        $ne: SubscriptionPlan.Free,
+      };
       filter['subscription.expiresAt'] = { $gte: now, $lte: in7Days };
-      // Explicit plan filter overrides "not free" when both are set.
-      if (filters.plan) {
-        if (filters.plan === SubscriptionPlan.Free) {
-          // Impossible combo: no free user is "paid expiring".
-          filter.id = '__none__';
-        } else {
-          filter['subscription.plan'] = filters.plan;
-        }
-      }
+    } else if (filters.plan) {
+      filter['subscription.plan'] = filters.plan;
     }
 
     const search = filters.search?.trim();

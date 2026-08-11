@@ -267,7 +267,7 @@ export class UsersService {
       profilePhoto,
       profile,
       ...safeUser
-    } = user.toObject() as User & { password: string };
+    } = user.toObject();
 
     const ids = [
       ...trainingProgram.map((item) => item.exerciseId),
@@ -276,7 +276,7 @@ export class UsersService {
       ),
     ];
     const catalog = await this.exercisesService.getExercisesByIds(ids);
-    const byId = new Map(catalog.map((e) => [e.id, e]));
+    const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]));
 
     return {
       ...safeUser,
@@ -337,9 +337,7 @@ export class UsersService {
     await this.checkCoachAthleteQuota(coach);
     await this.invitesRepository.deleteExpiredPending();
 
-    const normalizedEmail = email.toLowerCase().trim();
-    const existingUser =
-      await this.usersRepository.findByEmail(normalizedEmail);
+    const existingUser = await this.usersRepository.findByEmail(email);
 
     if (existingUser && existingUser.role !== Role.Athlete) {
       throwApiConflict(
@@ -364,7 +362,7 @@ export class UsersService {
     }
 
     const existingInvite =
-      (await this.invitesRepository.findPendingByEmail(normalizedEmail)) ??
+      (await this.invitesRepository.findPendingByEmail(email)) ??
       (athlete
         ? await this.invitesRepository.findPendingByAthleteId(athlete.id)
         : null);
@@ -380,7 +378,7 @@ export class UsersService {
       id: randomUUID(),
       coachId,
       athleteId: athlete?.id ?? null,
-      email: athlete?.email ?? normalizedEmail,
+      email: athlete?.email ?? email,
       invitedAt: new Date(),
     });
 

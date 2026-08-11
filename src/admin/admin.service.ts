@@ -170,7 +170,7 @@ export class AdminService {
         expiresAt: user.subscription?.expiresAt ?? null,
       },
       coachId: user.coachId ?? null,
-      createdAt: (user as UserDocument & { createdAt: Date }).createdAt,
+      createdAt: user.createdAt,
     };
   }
 }

@@ -9,38 +9,24 @@ import {
 
 const NOT_DELETED = { deletedAt: null };
 
+type UpdateUserPayload = {
+  coachTemplates?: CoachTrainingProgram[];
+  coachTrainingProgram?: CoachTrainingProgram[];
+};
+
 @Injectable()
 export class CoachTemplatesRepository {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
   ) {}
 
-  async findCoachById(coachId: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ id: coachId, ...NOT_DELETED }).exec();
-  }
-
   async findUserById(userId: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ id: userId, ...NOT_DELETED }).exec();
   }
 
-  async setCoachTemplates(
-    coachId: string,
-    coachTemplates: CoachTrainingProgram[],
-  ): Promise<void> {
+  async updateUser(userId: string, payload: UpdateUserPayload): Promise<void> {
     await this.userModel
-      .updateOne({ id: coachId, ...NOT_DELETED }, { $set: { coachTemplates } })
-      .exec();
-  }
-
-  async setCoachTrainingProgram(
-    athleteId: string,
-    coachTrainingProgram: CoachTrainingProgram[],
-  ): Promise<void> {
-    await this.userModel
-      .updateOne(
-        { id: athleteId, ...NOT_DELETED },
-        { $set: { coachTrainingProgram } },
-      )
+      .updateOne({ id: userId, ...NOT_DELETED }, { $set: payload })
       .exec();
   }
 }

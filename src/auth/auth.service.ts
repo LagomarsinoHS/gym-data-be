@@ -49,7 +49,6 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<LoginResponseDto> {
-    // findByEmail excludes soft-deleted (`deletedAt`) — treated as invalid credentials
     const user = await this.usersService.findByEmail(dto.email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');

@@ -37,10 +37,9 @@ export class CoachTemplatesService {
     dto: SetCoachTemplatesDto,
   ): Promise<{ coachTemplates: MeCoachTrainingProgramDto[] }> {
     await this.findCoachOrFail(coachId);
-    await this.coachTemplatesRepository.setCoachTemplates(
-      coachId,
-      dto.coachTemplates,
-    );
+    await this.coachTemplatesRepository.updateUser(coachId, {
+      coachTemplates: dto.coachTemplates,
+    });
     return this.getCoachTemplates(coachId);
   }
 
@@ -67,10 +66,9 @@ export class CoachTemplatesService {
       })),
     };
 
-    await this.coachTemplatesRepository.setCoachTemplates(coachId, [
-      ...existing,
-      created,
-    ]);
+    await this.coachTemplatesRepository.updateUser(coachId, {
+      coachTemplates: [...existing, created],
+    });
 
     const [template] = await this.enrichTemplates([created]);
     return { template };
@@ -92,18 +90,15 @@ export class CoachTemplatesService {
   }> {
     const coach = await this.findCoachOrFail(coachId);
     const templatesById = new Map(
-      (coach.coachTemplates ?? []).map((t) => [t.id, t]),
+      (coach.coachTemplates ?? []).map((template) => [template.id, template]),
     );
 
-    const templateIds = [
-      ...new Set(dto.templateIds.map((id) => id.trim()).filter(Boolean)),
-    ];
-    const athleteIds = [
-      ...new Set(dto.athleteIds.map((id) => id.trim()).filter(Boolean)),
-    ];
+    const templateIds = [...new Set(dto.templateIds.map((id) => id.trim()))];
+    const athleteIds = [...new Set(dto.athleteIds.map((id) => id.trim()))];
 
     const failedTemplates: string[] = [];
     const validTemplateIds: string[] = [];
+
     for (const templateId of templateIds) {
       if (templatesById.has(templateId)) validTemplateIds.push(templateId);
       else failedTemplates.push(templateId);
@@ -112,7 +107,7 @@ export class CoachTemplatesService {
     const applied: { athleteId: string; templateId: string }[] = [];
     const skipped: { athleteId: string; templateId: string }[] = [];
     const failedAthletes: string[] = [];
-    const appliedSeedsByTemplateId = new Map<string, CoachTrainingProgram>();
+    const appliedSessionsByTemplateId = new Map<string, CoachTrainingProgram>();
 
     for (const athleteId of athleteIds) {
       const athlete =
@@ -137,28 +132,27 @@ export class CoachTemplatesService {
         }
 
         const template = templatesById.get(templateId)!;
-        const seed = {
+        const sessionToAdd = {
           ...this.toPersistableSession(template),
           order: program.length,
         };
-        program.push(seed);
+        program.push(sessionToAdd);
         applied.push({ athleteId, templateId });
-        if (!appliedSeedsByTemplateId.has(templateId)) {
-          appliedSeedsByTemplateId.set(templateId, seed);
+        if (!appliedSessionsByTemplateId.has(templateId)) {
+          appliedSessionsByTemplateId.set(templateId, sessionToAdd);
         }
         changed = true;
       }
 
       if (changed) {
-        await this.coachTemplatesRepository.setCoachTrainingProgram(
-          athleteId,
-          program,
-        );
+        await this.coachTemplatesRepository.updateUser(athleteId, {
+          coachTrainingProgram: program,
+        });
       }
     }
 
-    const sessions = appliedSeedsByTemplateId.size
-      ? await this.enrichTemplates([...appliedSeedsByTemplateId.values()])
+    const sessions = appliedSessionsByTemplateId.size
+      ? await this.enrichTemplates([...appliedSessionsByTemplateId.values()])
       : [];
 
     return {
@@ -189,7 +183,7 @@ export class CoachTemplatesService {
   }
 
   private async findCoachOrFail(coachId: string) {
-    const coach = await this.coachTemplatesRepository.findCoachById(coachId);
+    const coach = await this.coachTemplatesRepository.findUserById(coachId);
     if (!coach) {
       throw new NotFoundException(`User with ID ${coachId} not found`);
     }
@@ -207,7 +201,7 @@ export class CoachTemplatesService {
       ),
     ];
     const catalog = await this.exercisesService.getExercisesByIds(exerciseIds);
-    const byId = new Map(catalog.map((e) => [e.id, e]));
+    const byId = new Map(catalog.map((exercise) => [exercise.id, exercise]));
     return this.enrichCoachTrainingProgram(templates, byId);
   }
 
