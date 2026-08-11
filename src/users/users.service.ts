@@ -262,6 +262,7 @@ export class UsersService {
       password: _password,
       trainingProgram,
       coachTrainingProgram,
+      coachTemplates: _coachTemplates,
       progressPhotos: _progressPhotos,
       profilePhoto,
       profile,
@@ -348,6 +349,19 @@ export class UsersService {
     }
 
     const athlete = existingUser?.role === Role.Athlete ? existingUser : null;
+
+    if (athlete?.coachId) {
+      if (athlete.coachId === coachId) {
+        throwApiConflict(
+          ApiErrorCode.AlreadyYourAthlete,
+          'This athlete is already assigned to you',
+        );
+      }
+      throwApiConflict(
+        ApiErrorCode.AthleteAlreadyHasCoach,
+        'This athlete already has an assigned coach',
+      );
+    }
 
     const existingInvite =
       (await this.invitesRepository.findPendingByEmail(normalizedEmail)) ??

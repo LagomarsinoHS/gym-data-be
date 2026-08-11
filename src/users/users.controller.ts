@@ -120,7 +120,9 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  // --- GET ---
+  // ===========================================================================
+  // Me / account — any authenticated role
+  // ===========================================================================
 
   @Get('me')
   @ApiOperation({ summary: 'Get the authenticated user from JWT sub' })
@@ -129,6 +131,153 @@ export class UsersController {
   getMe(@CurrentUser() user: AuthenticatedUser): Promise<MeResponseDto> {
     return this.usersService.getEnrichedUserById(user.userId);
   }
+
+  @Post('me/profile-photo')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('profilePhoto', {
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Upload or replace the authenticated user profile photo',
+    description:
+      'Multipart field `profilePhoto` (jpeg/png/webp, max 5MB). Stored in Cloudinary as `gym-app/profiles/{userId}/profilePhoto` with overwrite. Returns updated MeResponseDto (`profilePhoto: { url, uploadedAt }`).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['profilePhoto'],
+      properties: {
+        profilePhoto: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiBadRequestResponse({ description: 'Missing file or invalid image type' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  uploadProfilePhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<MeResponseDto> {
+    return this.usersService.uploadProfilePhoto(user.userId, file);
+  }
+
+  @Patch('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update the authenticated user profile',
+    description:
+      'Partial update. Send at least one of: profile (firstName/lastName/heightCm/sex/birthDate), goal, or newPassword. Optional profile fields and goal accept null to clear. Password change requires currentPassword + matching confirmNewPassword.',
+  })
+  @ApiBody({ type: UpdateProfileDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiBadRequestResponse({
+    description:
+      'No fields, invalid password payload, or incorrect current password',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(updateProfileSchema))
+    dto: UpdateProfileDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.updateProfile(user.userId, dto);
+  }
+
+  @Post('training-program')
+  @ApiOperation({
+    summary: 'Add exercises to the authenticated user training program',
+    description:
+      'Prepends one or more catalog exercises (by business id). Skips duplicates. User id comes from JWT.',
+  })
+  @ApiBody({ type: AddTrainingProgramDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'User or exercise not found' })
+  addToTrainingProgram(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(addTrainingProgramSchema))
+    dto: AddTrainingProgramDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.addToTrainingProgram(user.userId, dto.exerciseIds);
+  }
+
+  @Put('training-program/remove')
+  @ApiOperation({
+    summary: 'Remove an exercise from the authenticated user training program',
+    description:
+      'Removes the matching exerciseId from trainingProgram. Idempotent if already absent. User id comes from JWT.',
+  })
+  @ApiBody({ type: RemoveTrainingProgramDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  removeFromTrainingProgram(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(removeTrainingProgramSchema))
+    dto: RemoveTrainingProgramDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.removeFromTrainingProgram(
+      user.userId,
+      dto.exerciseId,
+    );
+  }
+
+  @Put('training-program/:exerciseId')
+  @ApiOperation({
+    summary: 'Update an exercise in the authenticated user training program',
+    description:
+      'Updates sets, reps, rest and/or notes for one item. User id comes from JWT.',
+  })
+  @ApiParam({ name: 'exerciseId', example: '0001' })
+  @ApiBody({ type: UpdateTrainingProgramExerciseDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({
+    description: 'User or exercise not found in training program',
+  })
+  updateTrainingProgramExercise(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('exerciseId') exerciseId: string,
+    @Body(new JoiValidationPipe(updateTrainingProgramExerciseSchema))
+    dto: UpdateTrainingProgramExerciseDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.updateTrainingProgramExercise(
+      user.userId,
+      exerciseId,
+      dto,
+    );
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Soft-delete the authenticated account',
+    description:
+      'Looks up the user by email, verifies `user.id` matches the JWT `sub`, and sets `deletedAt`. Does not clear coachId or other relations.',
+  })
+  @ApiBody({ type: DeleteAccountDto })
+  @ApiOkResponse({ type: OkResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description: 'Email does not belong to the authenticated user',
+  })
+  @ApiNotFoundResponse({ description: 'User not found for that email' })
+  softDeleteAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(deleteAccountSchema))
+    dto: DeleteAccountDto,
+  ): Promise<OkResponseDto> {
+    return this.usersService.softDeleteAccount(user.userId, dto.email);
+  }
+
+  // ===========================================================================
+  // Athlete
+  // ===========================================================================
 
   @Get('me/pending-coach-invite')
   @Roles(Role.Athlete)
@@ -145,6 +294,86 @@ export class UsersController {
   ): Promise<PendingCoachInviteResponseDto> {
     return this.usersService.getPendingCoachInvite(user.userId);
   }
+
+  @Post('me/pending-coach-invite/respond')
+  @Roles(Role.Athlete)
+  @ApiOperation({
+    summary: 'Accept or reject a pending coach invitation',
+    description:
+      'Looks up the pending Invite for the authenticated athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
+  })
+  @ApiBody({ type: RespondCoachInviteDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires athlete role, or the inviting coach has reached their athlete limit',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiConflictResponse({ description: 'No pending coach invitation' })
+  respondToCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(respondCoachInviteSchema))
+    dto: RespondCoachInviteDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.respondToCoachInvite(user.userId, dto.action);
+  }
+
+  @Post('me/progress-photos')
+  @Roles(Role.Athlete)
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'front', maxCount: 1 },
+        { name: 'back', maxCount: 1 },
+      ],
+      { limits: { fileSize: 5 * 1024 * 1024 } },
+    ),
+  )
+  @ApiOperation({
+    summary: 'Upload progress photos for the current month',
+    description:
+      'Athlete only. Multipart: `weightKg` (required) + at least one of `front` / `back` image files (jpeg/png/webp). Upserts the current UTC YYYY-MM month, sets that month’s weight, and refreshes `currentWeightKg` from the newest month with a weight. Replacing a side overwrites the Cloudinary asset (fixed publicId).',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['weightKg'],
+      properties: {
+        weightKg: { type: 'number', example: 72.5 },
+        yearMonth: {
+          type: 'string',
+          example: '2026-07',
+          description: 'Optional YYYY-MM (omit = current UTC month; no future)',
+        },
+        front: { type: 'string', format: 'binary' },
+        back: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: UploadProgressPhotoResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiBadRequestResponse({
+    description:
+      'Missing weight, missing both photos, invalid image type, or invalid/future yearMonth',
+  })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  uploadProgressPhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFiles()
+    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
+    @Body(new JoiValidationPipe(uploadProgressPhotoSchema))
+    dto: UploadProgressPhotoDto,
+  ): Promise<UploadProgressPhotoResponseDto> {
+    return this.usersService.uploadProgressPhoto(user.userId, files, dto);
+  }
+
+  // ===========================================================================
+  // Coach
+  // ===========================================================================
 
   @Get('coach/athletes')
   @Roles(Role.Coach)
@@ -195,6 +424,105 @@ export class UsersController {
 
     return new PaginatedResponse(data, query.page, query.limit, total);
   }
+
+  @Post('coach/invites')
+  @Roles(Role.Coach)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Invite an athlete by email',
+    description:
+      'Creates a pending Invite by email. The athlete may not be registered yet; when they register with that email the invite is linked. Pending invites expire after 24h if unanswered.',
+  })
+  @ApiBody({ type: CreateCoachInviteDto })
+  @ApiCreatedResponse({ type: OkResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description: 'Requires coach role, or athlete limit reached for plan',
+  })
+  @ApiConflictResponse({
+    description:
+      'Pending invite already exists, email is non-athlete, already your athlete, or athlete already has a coach',
+  })
+  createCoachInvite(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(createCoachInviteSchema))
+    dto: CreateCoachInviteDto,
+  ): Promise<OkResponseDto> {
+    return this.usersService.createCoachInvite(user.userId, dto.email);
+  }
+
+  @Post('coach/training-program/export')
+  @Roles(Role.Coach)
+  @ApiOperation({
+    summary: 'Export coach training programs as Excel or PDF (or ZIP)',
+    description:
+      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. format: xlsx (default) or pdf. One file → .xlsx/.pdf; multiple → .zip. Athletes without a coachTrainingProgram are skipped.',
+  })
+  @ApiBody({ type: ExportCoachTrainingProgramDto })
+  @ApiProduces(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+    'application/zip',
+  )
+  @ApiOkResponse({ description: 'Excel, PDF, or ZIP file download' })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires coach role, or one or more athletes are not assigned to this coach',
+  })
+  @ApiNotFoundResponse({ description: 'No athletes or programs to export' })
+  async exportCoachTrainingPrograms(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new JoiValidationPipe(exportCoachTrainingProgramSchema))
+    dto: ExportCoachTrainingProgramDto,
+  ): Promise<StreamableFile> {
+    const file = await this.usersService.exportCoachTrainingPrograms(
+      user.userId,
+      dto,
+    );
+
+    return new StreamableFile(file.buffer, {
+      type: file.contentType,
+      disposition: `attachment; filename="${file.filename}"`,
+    });
+  }
+
+  @Put('coach/athletes/:athleteId/training-program')
+  @Roles(Role.Coach)
+  @ApiOperation({
+    summary: 'Replace an athlete coach training program',
+    description:
+      'Sets coachTrainingProgram to the provided array for an athlete assigned to the authenticated coach. Send exerciseId only per item.',
+  })
+  @ApiParam({
+    name: 'athleteId',
+    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
+  })
+  @ApiBody({ type: SetCoachTrainingProgramDto })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'Athlete not found' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires coach role, or athlete is not assigned to this coach',
+  })
+  setCoachTrainingProgram(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('athleteId') athleteId: string,
+    @Body(new JoiValidationPipe(setCoachTrainingProgramSchema))
+    dto: SetCoachTrainingProgramDto,
+  ): Promise<MeResponseDto> {
+    return this.usersService.setCoachTrainingProgram(
+      user.userId,
+      athleteId,
+      dto,
+    );
+  }
+
+  // ===========================================================================
+  // Progress photos — self or assigned coach (analyze = coach + paid)
+  // Keep parametric :userId routes after static paths above.
+  // ===========================================================================
 
   @Get(':userId/progress-photos')
   @ApiOperation({
@@ -256,326 +584,5 @@ export class UsersController {
     dto: AnalyzeProgressPhotosDto,
   ): Promise<AnalyzeProgressPhotosResponseDto> {
     return this.usersService.analyzeProgressPhotos(user.userId, userId, dto);
-  }
-
-  // --- POST ---
-
-  @Post('me/pending-coach-invite/respond')
-  @Roles(Role.Athlete)
-  @ApiOperation({
-    summary: 'Accept or reject a pending coach invitation',
-    description:
-      'Looks up the pending Invite for the authenticated athlete. Accept assigns coachId (replacing any previous coach) and marks the Invite accepted. Reject marks the Invite rejected.',
-  })
-  @ApiBody({ type: RespondCoachInviteDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({
-    description:
-      'Requires athlete role, or the inviting coach has reached their athlete limit',
-  })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  @ApiConflictResponse({ description: 'No pending coach invitation' })
-  respondToCoachInvite(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(respondCoachInviteSchema))
-    dto: RespondCoachInviteDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.respondToCoachInvite(user.userId, dto.action);
-  }
-
-  @Post('me/profile-photo')
-  @HttpCode(HttpStatus.OK)
-  @UseInterceptors(
-    FileInterceptor('profilePhoto', {
-      limits: { fileSize: 5 * 1024 * 1024 },
-    }),
-  )
-  @ApiOperation({
-    summary: 'Upload or replace the authenticated user profile photo',
-    description:
-      'Multipart field `profilePhoto` (jpeg/png/webp, max 5MB). Stored in Cloudinary as `gym-app/profiles/{userId}/profilePhoto` with overwrite. Returns updated MeResponseDto (`profilePhoto: { url, uploadedAt }`).',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['profilePhoto'],
-      properties: {
-        profilePhoto: { type: 'string', format: 'binary' },
-      },
-    },
-  })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiBadRequestResponse({ description: 'Missing file or invalid image type' })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  uploadProfilePhoto(
-    @CurrentUser() user: AuthenticatedUser,
-    @UploadedFile() file: Express.Multer.File,
-  ): Promise<MeResponseDto> {
-    return this.usersService.uploadProfilePhoto(user.userId, file);
-  }
-
-  @Post('me/progress-photos')
-  @Roles(Role.Athlete)
-  @HttpCode(HttpStatus.CREATED)
-  @UseInterceptors(
-    FileFieldsInterceptor(
-      [
-        { name: 'front', maxCount: 1 },
-        { name: 'back', maxCount: 1 },
-      ],
-      { limits: { fileSize: 5 * 1024 * 1024 } },
-    ),
-  )
-  @ApiOperation({
-    summary: 'Upload progress photos for the current month',
-    description:
-      'Athlete only. Multipart: `weightKg` (required) + at least one of `front` / `back` image files (jpeg/png/webp). Upserts the current UTC YYYY-MM month, sets that month’s weight, and refreshes `currentWeightKg` from the newest month with a weight. Replacing a side overwrites the Cloudinary asset (fixed publicId).',
-  })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['weightKg'],
-      properties: {
-        weightKg: { type: 'number', example: 72.5 },
-        yearMonth: {
-          type: 'string',
-          example: '2026-07',
-          description: 'Optional YYYY-MM (omit = current UTC month; no future)',
-        },
-        front: { type: 'string', format: 'binary' },
-        back: { type: 'string', format: 'binary' },
-      },
-    },
-  })
-  @ApiCreatedResponse({ type: UploadProgressPhotoResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({ description: 'Requires athlete role' })
-  @ApiBadRequestResponse({
-    description:
-      'Missing weight, missing both photos, invalid image type, or invalid/future yearMonth',
-  })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  uploadProgressPhoto(
-    @CurrentUser() user: AuthenticatedUser,
-    @UploadedFiles()
-    files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] },
-    @Body(new JoiValidationPipe(uploadProgressPhotoSchema))
-    dto: UploadProgressPhotoDto,
-  ): Promise<UploadProgressPhotoResponseDto> {
-    return this.usersService.uploadProgressPhoto(user.userId, files, dto);
-  }
-
-  @Post('coach/training-program/export')
-  @Roles(Role.Coach)
-  @ApiOperation({
-    summary: 'Export coach training programs as Excel or PDF (or ZIP)',
-    description:
-      'athleteIds: [] exports all assigned athletes; otherwise exports the given ids. format: xlsx (default) or pdf. One file → .xlsx/.pdf; multiple → .zip. Athletes without a coachTrainingProgram are skipped.',
-  })
-  @ApiBody({ type: ExportCoachTrainingProgramDto })
-  @ApiProduces(
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/pdf',
-    'application/zip',
-  )
-  @ApiOkResponse({ description: 'Excel, PDF, or ZIP file download' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({
-    description:
-      'Requires coach role, or one or more athletes are not assigned to this coach',
-  })
-  @ApiNotFoundResponse({ description: 'No athletes or programs to export' })
-  async exportCoachTrainingPrograms(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(exportCoachTrainingProgramSchema))
-    dto: ExportCoachTrainingProgramDto,
-  ): Promise<StreamableFile> {
-    const file = await this.usersService.exportCoachTrainingPrograms(
-      user.userId,
-      dto,
-    );
-
-    return new StreamableFile(file.buffer, {
-      type: file.contentType,
-      disposition: `attachment; filename="${file.filename}"`,
-    });
-  }
-
-  @Post('coach/invites')
-  @Roles(Role.Coach)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: 'Invite an athlete by email',
-    description:
-      'Creates a pending Invite by email. The athlete may not be registered yet; when they register with that email the invite is linked. Pending invites expire after 24h if unanswered.',
-  })
-  @ApiBody({ type: CreateCoachInviteDto })
-  @ApiCreatedResponse({ type: OkResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({
-    description: 'Requires coach role, or athlete limit reached for plan',
-  })
-  @ApiConflictResponse({
-    description:
-      'Pending invite already exists for that email, or email belongs to a non-athlete account',
-  })
-  createCoachInvite(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(createCoachInviteSchema))
-    dto: CreateCoachInviteDto,
-  ): Promise<OkResponseDto> {
-    return this.usersService.createCoachInvite(user.userId, dto.email);
-  }
-
-  @Post('training-program')
-  @ApiOperation({
-    summary: 'Add exercises to the authenticated user training program',
-    description:
-      'Prepends one or more catalog exercises (by business id). Skips duplicates. User id comes from JWT.',
-  })
-  @ApiBody({ type: AddTrainingProgramDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiNotFoundResponse({ description: 'User or exercise not found' })
-  addToTrainingProgram(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(addTrainingProgramSchema))
-    dto: AddTrainingProgramDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.addToTrainingProgram(user.userId, dto.exerciseIds);
-  }
-
-  // --- PATCH ---
-
-  @Patch('me')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Update the authenticated user profile',
-    description:
-      'Partial update. Send at least one of: profile (firstName/lastName/heightCm/sex/birthDate), goal, or newPassword. Optional profile fields and goal accept null to clear. Password change requires currentPassword + matching confirmNewPassword.',
-  })
-  @ApiBody({ type: UpdateProfileDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiBadRequestResponse({
-    description:
-      'No fields, invalid password payload, or incorrect current password',
-  })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  updateProfile(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(updateProfileSchema))
-    dto: UpdateProfileDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.updateProfile(user.userId, dto);
-  }
-
-  // --- PUT ---
-
-  @Put('coach/athletes/:athleteId/training-program')
-  @Roles(Role.Coach)
-  @ApiOperation({
-    summary: 'Replace an athlete coach training program',
-    description:
-      'Sets coachTrainingProgram to the provided array for an athlete assigned to the authenticated coach. Send exerciseId only per item.',
-  })
-  @ApiParam({
-    name: 'athleteId',
-    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
-  })
-  @ApiBody({ type: SetCoachTrainingProgramDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiNotFoundResponse({ description: 'Athlete not found' })
-  @ApiForbiddenResponse({
-    description:
-      'Requires coach role, or athlete is not assigned to this coach',
-  })
-  setCoachTrainingProgram(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('athleteId') athleteId: string,
-    @Body(new JoiValidationPipe(setCoachTrainingProgramSchema))
-    dto: SetCoachTrainingProgramDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.setCoachTrainingProgram(
-      user.userId,
-      athleteId,
-      dto,
-    );
-  }
-
-  @Put('training-program/remove')
-  @ApiOperation({
-    summary: 'Remove an exercise from the authenticated user training program',
-    description:
-      'Removes the matching exerciseId from trainingProgram. Idempotent if already absent. User id comes from JWT.',
-  })
-  @ApiBody({ type: RemoveTrainingProgramDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiNotFoundResponse({ description: 'User not found' })
-  removeFromTrainingProgram(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(removeTrainingProgramSchema))
-    dto: RemoveTrainingProgramDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.removeFromTrainingProgram(
-      user.userId,
-      dto.exerciseId,
-    );
-  }
-
-  @Put('training-program/:exerciseId')
-  @ApiOperation({
-    summary: 'Update an exercise in the authenticated user training program',
-    description:
-      'Updates sets, reps, rest and/or notes for one item. User id comes from JWT.',
-  })
-  @ApiParam({ name: 'exerciseId', example: '0001' })
-  @ApiBody({ type: UpdateTrainingProgramExerciseDto })
-  @ApiOkResponse({ type: MeResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiNotFoundResponse({
-    description: 'User or exercise not found in training program',
-  })
-  updateTrainingProgramExercise(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('exerciseId') exerciseId: string,
-    @Body(new JoiValidationPipe(updateTrainingProgramExerciseSchema))
-    dto: UpdateTrainingProgramExerciseDto,
-  ): Promise<MeResponseDto> {
-    return this.usersService.updateTrainingProgramExercise(
-      user.userId,
-      exerciseId,
-      dto,
-    );
-  }
-
-  // --- DELETE ---
-
-  @Delete('me')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Soft-delete the authenticated account',
-    description:
-      'Looks up the user by email, verifies `user.id` matches the JWT `sub`, and sets `deletedAt`. Does not clear coachId or other relations.',
-  })
-  @ApiBody({ type: DeleteAccountDto })
-  @ApiOkResponse({ type: OkResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
-  @ApiForbiddenResponse({
-    description: 'Email does not belong to the authenticated user',
-  })
-  @ApiNotFoundResponse({ description: 'User not found for that email' })
-  softDeleteAccount(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new JoiValidationPipe(deleteAccountSchema))
-    dto: DeleteAccountDto,
-  ): Promise<OkResponseDto> {
-    return this.usersService.softDeleteAccount(user.userId, dto.email);
   }
 }

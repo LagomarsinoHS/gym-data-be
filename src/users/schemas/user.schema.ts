@@ -238,6 +238,15 @@ export class User {
   coachTrainingProgram: CoachTrainingProgram[];
 
   @ApiProperty({
+    type: [CoachTrainingProgram],
+    default: [],
+    description:
+      'Reusable session templates owned by the coach (same shape as one coachTrainingProgram session). Not returned on /me — dedicated coach endpoints.',
+  })
+  @Prop({ type: [CoachTrainingProgram], default: [] })
+  coachTemplates: CoachTrainingProgram[];
+
+  @ApiProperty({
     type: [ProgressPhotoMonth],
     default: [],
     description:

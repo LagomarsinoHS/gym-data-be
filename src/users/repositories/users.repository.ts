@@ -119,6 +119,18 @@ export class UsersRepository {
       .exec();
   }
 
+  async setCoachTemplates(
+    coachId: string,
+    coachTemplates: CoachTrainingProgram[],
+  ): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: coachId, ...NOT_DELETED },
+        { $set: { coachTemplates } },
+      )
+      .exec();
+  }
+
   /**
    * Assign coach on accept. Reject only updates the Invite row (no user change).
    */

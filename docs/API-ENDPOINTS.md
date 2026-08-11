@@ -462,7 +462,7 @@ POST /users/{userId}/progress-photos/analyze
 | Auth | JWT + **coach** |
 | Respuesta | `201` — `{ ok: true }` |
 | Errores | `403` si ya alcanzó la cuota (`code: COACH_ATHLETE_QUOTA_FULL`). Cupos: `free` 5 / `growth` 10 / `pro` 20 |
-| Errores | `409` `ATHLETE_HAS_PENDING_INVITE` · `409` `EMAIL_NOT_AN_ATHLETE` (email es coach/admin) |
+| Errores | `409` `ATHLETE_HAS_PENDING_INVITE` · `409` `EMAIL_NOT_AN_ATHLETE` (email es coach/admin) · `409` `ALREADY_YOUR_ATHLETE` · `409` `ATHLETE_ALREADY_HAS_COACH` |
 
 El atleta **puede no existir aún**. Se crea un invite `pending` por email (`athleteId: null`). Al **registrarse** como athlete con ese email se vincula `athleteId`. Los `pending` sin respuesta se **eliminan a las 24h** (TTL Mongo + cleanup oportunista).
 
@@ -591,6 +591,72 @@ Agrega ejercicios al plan propio del user autenticado.
   "notes": "Controlar la bajada"
 }
 ```
+
+---
+
+### `GET /coach/templates`
+
+Plantillas de sesión reutilizables del coach autenticado (módulo `CoachTemplatesModule`; embebidas en `User.coachTemplates`).
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `200` — `{ coachTemplates }` enriquecido (catalog exercise en cada item) |
+| Errores | `403` si no es coach |
+
+### `POST /coach/templates`
+
+Crea una plantilla. El **servidor asigna el `id`** (UUID). El cliente no envía `id`.
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `201` — `{ template }` enriquecido |
+| Errores | `403` si no es coach |
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `name` | Obligatorio | 1–80 chars |
+| `order` | Opcional | default = append al final |
+| `items` | Opcional | default `[]`; mismos campos de item que el plan (exerciseId, …) |
+
+### `PUT /coach/templates`
+
+Reemplaza por completo `coachTemplates` del coach (útil para editar/reordenar/guardar items). Preferir `POST` para altas nuevas.
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `200` — `{ coachTemplates }` enriquecido |
+| Errores | `403` si no es coach |
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `coachTemplates` | Obligatorio | array (puede ser `[]` para vaciar). Misma forma que `coachTrainingProgram` (id, name, order, items) |
+
+No se expone en `GET /users/me`.
+
+### `POST /coach/templates/:id/apply`
+
+Copia la plantilla al plan de uno o más alumnos como sesión nueva. El **id de la sesión = id de la plantilla**. Si el alumno ya la tiene, se omite.
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `200` — `{ applied: string[], skipped: string[], failed: string[] }` |
+| Errores | `404` plantilla inexistente; `403` si no es coach |
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `athleteIds` | Obligatorio | 1–50 ids; duplicados se ignoran |
+
+`failed` = athlete no existe / no es athlete / no es tuyo.
 
 ---
 
@@ -831,6 +897,8 @@ Códigos estables para i18n en el client (`code` + `message` EN de debug):
 | `COACH_ATHLETE_QUOTA_FULL` | 403 | Coach invita con cupo lleno, o atleta acepta y el coach ya está al límite |
 | `EMAIL_NOT_AN_ATHLETE` | 409 | Invite a un email que ya es coach/admin (no athlete) |
 | `ATHLETE_HAS_PENDING_INVITE` | 409 | Ya hay una invite pending para ese email / athlete |
+| `ALREADY_YOUR_ATHLETE` | 409 | El atleta ya tiene `coachId` = el coach que invita |
+| `ATHLETE_ALREADY_HAS_COACH` | 409 | El atleta ya tiene otro coach asignado |
 | `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
 | `CURRENT_PASSWORD_INCORRECT` | 400 | `PATCH /users/me` con `newPassword` y contraseña actual incorrecta |
 | `AI_REQUEST_FAILED` | 502 | Error / respuesta vacía o JSON inválido de la IA |
@@ -886,6 +954,6 @@ Growth (coach) ejemplo:
 |---|---|---|
 | Auth | 2 | público |
 | Exercises | 5 | público (+ recommend JWT + paid) |
-| Users | 17 | JWT |
+| Users | 19 | JWT |
 | Admin | 5 | JWT + admin (stats, users, soft-delete, grant, revoke) |
 | **Total** | **26** | |
