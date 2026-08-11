@@ -41,9 +41,7 @@ function grantDurationBase(
   }
 
   const currentExpiry = new Date(subscription.expiresAt).getTime();
-  return currentExpiry > now.getTime()
-    ? new Date(subscription.expiresAt)
-    : now;
+  return currentExpiry > now.getTime() ? new Date(subscription.expiresAt) : now;
 }
 
 @Injectable()
@@ -79,10 +77,7 @@ export class AdminService {
     requesterUserId: string,
     targetUserId: string,
   ): Promise<OkResponseDto> {
-    return this.usersService.adminSoftDeleteUser(
-      requesterUserId,
-      targetUserId,
-    );
+    return this.usersService.adminSoftDeleteUser(requesterUserId, targetUserId);
   }
 
   async grantSubscription(

@@ -5,37 +5,68 @@ import { MeCoachTrainingProgramDto } from '../../users/dto/me-response.dto';
 export class ApplyCoachTemplateDto {
   @ApiProperty({
     type: [String],
+    example: ['template-uuid-1', 'template-uuid-2'],
+    description:
+      'Template ids to copy (1–50). Session id on the athlete plan matches the template id.',
+  })
+  templateIds: string[];
+
+  @ApiProperty({
+    type: [String],
     example: ['athlete-uuid-1', 'athlete-uuid-2'],
-    description: 'Athletes that should receive a copy of this template as a new session.',
+    description: 'Athletes that should receive the templates (1–50).',
   })
   athleteIds: string[];
 }
 
+export class ApplyCoachTemplatePairDto {
+  @ApiProperty({ example: 'athlete-uuid' })
+  athleteId: string;
+
+  @ApiProperty({ example: 'template-uuid' })
+  templateId: string;
+}
+
 export class ApplyCoachTemplateResponseDto {
-  @ApiProperty({ type: [String], description: 'Athletes that received the session' })
-  applied: string[];
+  @ApiProperty({
+    type: [ApplyCoachTemplatePairDto],
+    description: 'Pairs that were appended as sessions',
+  })
+  applied: ApplyCoachTemplatePairDto[];
 
   @ApiProperty({
-    type: [String],
-    description: 'Athletes that already had a session with this template id',
+    type: [ApplyCoachTemplatePairDto],
+    description:
+      'Pairs skipped because the athlete already had that session id',
   })
-  skipped: string[];
+  skipped: ApplyCoachTemplatePairDto[];
 
   @ApiProperty({
     type: [String],
     description: 'Athlete ids that could not be updated (missing / not yours)',
   })
-  failed: string[];
+  failedAthletes: string[];
 
   @ApiProperty({
-    type: MeCoachTrainingProgramDto,
-    description:
-      'Enriched session copy that was (or would be) appended. Same for all athletes; each athlete gets order = their plan length at apply time.',
+    type: [String],
+    description: 'Template ids not found in the coach library',
   })
-  session: MeCoachTrainingProgramDto;
+  failedTemplates: string[];
+
+  @ApiProperty({
+    type: [MeCoachTrainingProgramDto],
+    description:
+      'Enriched session payloads for templates that were applied at least once (unique by template id).',
+  })
+  sessions: MeCoachTrainingProgramDto[];
 }
 
 export const applyCoachTemplateSchema = Joi.object<ApplyCoachTemplateDto>({
+  templateIds: Joi.array()
+    .items(Joi.string().trim().min(1))
+    .min(1)
+    .max(50)
+    .required(),
   athleteIds: Joi.array()
     .items(Joi.string().trim().min(1))
     .min(1)

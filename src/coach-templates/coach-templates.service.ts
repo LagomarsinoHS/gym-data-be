@@ -77,36 +77,42 @@ export class CoachTemplatesService {
   }
 
   /**
-   * Copies a template onto each athlete plan as a new session.
-   * Session id = template id (skip if athlete already has that session id).
+   * Copies templates onto athlete plans (cartesian).
+   * Session id = template id. One write per athlete. Skips pairs already present.
    */
-  async applyCoachTemplate(
+  async applyCoachTemplates(
     coachId: string,
-    templateId: string,
     dto: ApplyCoachTemplateDto,
   ): Promise<{
-    applied: string[];
-    skipped: string[];
-    failed: string[];
-    session: MeCoachTrainingProgramDto;
+    applied: { athleteId: string; templateId: string }[];
+    skipped: { athleteId: string; templateId: string }[];
+    failedAthletes: string[];
+    failedTemplates: string[];
+    sessions: MeCoachTrainingProgramDto[];
   }> {
     const coach = await this.findCoachOrFail(coachId);
-    const template = (coach.coachTemplates ?? []).find(
-      (t) => t.id === templateId,
+    const templatesById = new Map(
+      (coach.coachTemplates ?? []).map((t) => [t.id, t]),
     );
-    if (!template) {
-      throw new NotFoundException(`Template with ID ${templateId} not found`);
-    }
 
-    const sessionSeed = this.toPersistableSession(template);
-    const [session] = await this.enrichTemplates([sessionSeed]);
+    const templateIds = [
+      ...new Set(dto.templateIds.map((id) => id.trim()).filter(Boolean)),
+    ];
     const athleteIds = [
       ...new Set(dto.athleteIds.map((id) => id.trim()).filter(Boolean)),
     ];
 
-    const applied: string[] = [];
-    const skipped: string[] = [];
-    const failed: string[] = [];
+    const failedTemplates: string[] = [];
+    const validTemplateIds: string[] = [];
+    for (const templateId of templateIds) {
+      if (templatesById.has(templateId)) validTemplateIds.push(templateId);
+      else failedTemplates.push(templateId);
+    }
+
+    const applied: { athleteId: string; templateId: string }[] = [];
+    const skipped: { athleteId: string; templateId: string }[] = [];
+    const failedAthletes: string[] = [];
+    const appliedSeedsByTemplateId = new Map<string, CoachTrainingProgram>();
 
     for (const athleteId of athleteIds) {
       const athlete =
@@ -117,28 +123,51 @@ export class CoachTemplatesService {
         athlete.role !== Role.Athlete ||
         athlete.coachId !== coachId
       ) {
-        failed.push(athleteId);
+        failedAthletes.push(athleteId);
         continue;
       }
 
       const program = [...(athlete.coachTrainingProgram ?? [])];
-      if (program.some((s) => s.id === templateId)) {
-        skipped.push(athleteId);
-        continue;
+      let changed = false;
+
+      for (const templateId of validTemplateIds) {
+        if (program.some((s) => s.id === templateId)) {
+          skipped.push({ athleteId, templateId });
+          continue;
+        }
+
+        const template = templatesById.get(templateId)!;
+        const seed = {
+          ...this.toPersistableSession(template),
+          order: program.length,
+        };
+        program.push(seed);
+        applied.push({ athleteId, templateId });
+        if (!appliedSeedsByTemplateId.has(templateId)) {
+          appliedSeedsByTemplateId.set(templateId, seed);
+        }
+        changed = true;
       }
 
-      program.push({
-        ...sessionSeed,
-        order: program.length,
-      });
-      await this.coachTemplatesRepository.setCoachTrainingProgram(
-        athleteId,
-        program,
-      );
-      applied.push(athleteId);
+      if (changed) {
+        await this.coachTemplatesRepository.setCoachTrainingProgram(
+          athleteId,
+          program,
+        );
+      }
     }
 
-    return { applied, skipped, failed, session };
+    const sessions = appliedSeedsByTemplateId.size
+      ? await this.enrichTemplates([...appliedSeedsByTemplateId.values()])
+      : [];
+
+    return {
+      applied,
+      skipped,
+      failedAthletes,
+      failedTemplates,
+      sessions,
+    };
   }
 
   private toPersistableSession(

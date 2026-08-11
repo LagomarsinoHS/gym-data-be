@@ -28,10 +28,7 @@ export class CoachTemplatesRepository {
     coachTemplates: CoachTrainingProgram[],
   ): Promise<void> {
     await this.userModel
-      .updateOne(
-        { id: coachId, ...NOT_DELETED },
-        { $set: { coachTemplates } },
-      )
+      .updateOne({ id: coachId, ...NOT_DELETED }, { $set: { coachTemplates } })
       .exec();
   }
 

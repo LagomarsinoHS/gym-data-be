@@ -640,25 +640,29 @@ Reemplaza por completo `coachTemplates` del coach (útil para editar/reordenar/g
 
 No se expone en `GET /users/me`.
 
-### `POST /coach/templates/:id/apply`
+### `POST /coach/templates/apply`
 
-Copia la plantilla al plan de uno o más alumnos como sesión nueva. El **id de la sesión = id de la plantilla**. Si el alumno ya la tiene, se omite.
+Copia **1..N plantillas** al plan de **1..N alumnos** (producto cartesiano). El **id de la sesión = id de la plantilla**. Si el par ya existe, se omite. Una escritura por alumno.
+
+Único endpoint de apply (reemplaza los antiguos `:id/apply` y `apply-batch`).
 
 | | |
 |---|---|
 | Auth | JWT + **coach** |
-| Respuesta | `200` — `{ applied: string[], skipped: string[], failed: string[], session }` |
-| Errores | `404` plantilla inexistente; `403` si no es coach |
+| Respuesta | `200` — `{ applied, skipped, failedAthletes, failedTemplates, sessions }` |
+| Errores | `403` si no es coach |
 
 **Body**
 
 | Campo | | Notas |
 |---|---|---|
+| `templateIds` | Obligatorio | 1–50 ids; duplicados se ignoran |
 | `athleteIds` | Obligatorio | 1–50 ids; duplicados se ignoran |
 
-`failed` = athlete no existe / no es athlete / no es tuyo.
-
-`session` = copia enriquecida de la sesión (misma forma que un ítem de `coachTrainingProgram`). Es la misma payload para todos los alumnos; en DB cada uno recibe `order = length` de su plan al aplicar.
+`applied` / `skipped` = pares `{ athleteId, templateId }`.  
+`failedAthletes` = athlete no existe / no es athlete / no es tuyo.  
+`failedTemplates` = plantilla inexistente en la biblioteca del coach.  
+`sessions` = copias enriquecidas (únicas por template id) de las que se aplicaron al menos una vez.
 
 ---
 

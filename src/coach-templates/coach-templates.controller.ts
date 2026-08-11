@@ -4,7 +4,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Param,
   Post,
   Put,
   UseGuards,
@@ -14,10 +13,8 @@ import {
   ApiBody,
   ApiCreatedResponse,
   ApiForbiddenResponse,
-  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -88,31 +85,24 @@ export class CoachTemplatesController {
     return this.coachTemplatesService.createCoachTemplate(user.userId, dto);
   }
 
-  @Post(':id/apply')
+  @Post('apply')
   @Roles(Role.Coach)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Apply a template to one or more athletes',
+    summary: 'Apply templates to athletes',
     description:
-      'Copies the template as a new session onto each athlete plan. Session id matches the template id; athletes that already have it are skipped. Response includes the enriched session payload for clients to sync local plan state.',
+      'Copies each template onto each athlete plan (cartesian). Session id matches template id; already-present pairs are skipped. One DB write per athlete. Returns enriched sessions for local sync.',
   })
-  @ApiParam({ name: 'id', description: 'Template id' })
   @ApiBody({ type: ApplyCoachTemplateDto })
   @ApiOkResponse({ type: ApplyCoachTemplateResponseDto })
-  @ApiNotFoundResponse({ description: 'Template not found' })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
   @ApiForbiddenResponse({ description: 'Requires coach role' })
-  applyCoachTemplate(
+  applyCoachTemplates(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('id') templateId: string,
     @Body(new JoiValidationPipe(applyCoachTemplateSchema))
     dto: ApplyCoachTemplateDto,
   ): Promise<ApplyCoachTemplateResponseDto> {
-    return this.coachTemplatesService.applyCoachTemplate(
-      user.userId,
-      templateId,
-      dto,
-    );
+    return this.coachTemplatesService.applyCoachTemplates(user.userId, dto);
   }
 
   @Put()

@@ -124,10 +124,7 @@ export class UsersRepository {
     coachTemplates: CoachTrainingProgram[],
   ): Promise<void> {
     await this.userModel
-      .updateOne(
-        { id: coachId, ...NOT_DELETED },
-        { $set: { coachTemplates } },
-      )
+      .updateOne({ id: coachId, ...NOT_DELETED }, { $set: { coachTemplates } })
       .exec();
   }
 
@@ -330,41 +327,35 @@ export class UsersRepository {
     const since7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const since30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [
-      total,
-      roleRows,
-      planRows,
-      paidExpiringSoon,
-      signups7,
-      signups30,
-    ] = await Promise.all([
-      this.userModel.countDocuments(NOT_DELETED).exec(),
-      this.userModel
-        .aggregate<{ _id: string; count: number }>([
-          { $match: NOT_DELETED },
-          { $group: { _id: '$role', count: { $sum: 1 } } },
-        ])
-        .exec(),
-      this.userModel
-        .aggregate<{ _id: string; count: number }>([
-          { $match: NOT_DELETED },
-          { $group: { _id: '$subscription.plan', count: { $sum: 1 } } },
-        ])
-        .exec(),
-      this.userModel
-        .countDocuments({
-          ...NOT_DELETED,
-          'subscription.plan': { $ne: SubscriptionPlan.Free },
-          'subscription.expiresAt': { $gte: now, $lte: in7Days },
-        })
-        .exec(),
-      this.userModel
-        .countDocuments({ ...NOT_DELETED, createdAt: { $gte: since7 } })
-        .exec(),
-      this.userModel
-        .countDocuments({ ...NOT_DELETED, createdAt: { $gte: since30 } })
-        .exec(),
-    ]);
+    const [total, roleRows, planRows, paidExpiringSoon, signups7, signups30] =
+      await Promise.all([
+        this.userModel.countDocuments(NOT_DELETED).exec(),
+        this.userModel
+          .aggregate<{ _id: string; count: number }>([
+            { $match: NOT_DELETED },
+            { $group: { _id: '$role', count: { $sum: 1 } } },
+          ])
+          .exec(),
+        this.userModel
+          .aggregate<{ _id: string; count: number }>([
+            { $match: NOT_DELETED },
+            { $group: { _id: '$subscription.plan', count: { $sum: 1 } } },
+          ])
+          .exec(),
+        this.userModel
+          .countDocuments({
+            ...NOT_DELETED,
+            'subscription.plan': { $ne: SubscriptionPlan.Free },
+            'subscription.expiresAt': { $gte: now, $lte: in7Days },
+          })
+          .exec(),
+        this.userModel
+          .countDocuments({ ...NOT_DELETED, createdAt: { $gte: since7 } })
+          .exec(),
+        this.userModel
+          .countDocuments({ ...NOT_DELETED, createdAt: { $gte: since30 } })
+          .exec(),
+      ]);
 
     const byRole = { athlete: 0, coach: 0, admin: 0 };
     for (const row of roleRows) {

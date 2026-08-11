@@ -17,6 +17,7 @@ Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
 - [x] Admin: grant / revoke subscription (`plan` requerido en grant: premium | growth | pro)
 - [x] API error codes estables para invites/cuota (`COACH_ATHLETE_QUOTA_FULL`, etc.)
 - [x] Módulo `ai` (`AiService` port + `GeminiAiProvider`; `recommendWorkout` / `analyzeProgressPhotos`); env opcional `GEMINI_API_KEY` + `GEMINI_MODEL`
+- [x] Coach templates (`CoachTemplatesModule`): `GET|POST|PUT /coach/templates` + `POST /coach/templates/apply` (1..N plantillas × 1..N alumnos; response con pares + `sessions` enriquecidas)
 
 > FE: menú de cuenta (iniciales/foto + dropdown). **Mi perfil** cableado (lectura, foto, editar, baja). **Configuración** aún deshabilitada en FE.
 > La **baja de cuenta** (soft-delete / `deletedAt`) vive en **Mi perfil** (`DELETE /users/me`), no en Configuración.

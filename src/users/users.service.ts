@@ -767,7 +767,9 @@ export class UsersService {
     targetUserId: string,
   ): Promise<OkResponseDto> {
     if (requesterUserId === targetUserId) {
-      throw new ForbiddenException('You cannot soft-delete your own account here');
+      throw new ForbiddenException(
+        'You cannot soft-delete your own account here',
+      );
     }
 
     const user = await this.findByIdOrFail(targetUserId);
