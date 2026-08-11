@@ -109,6 +109,32 @@ Response del GET:
 - [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
 - [ ] Doc en `API-ENDPOINTS.md`
 
+### Admin panel
+
+> Detalle de producto / UI en FE `docs/TODO.md` § Admin panel.  
+> Listo: Overview (`GET /admin/stats`), Usuarios (`GET /admin/users` + soft-delete), grant/revoke por email (extiende `expiresAt` si el plan pago sigue activo).
+
+#### 1. Overview (primera)
+- [x] `GET /admin/stats` — agregados: totales por `role`, totales por `subscription.plan`, count paid por vencer (< 7 días); altas 7/30 días
+- [x] Auth: JWT + `RolesGuard` `@Roles(Admin)` (como grant/revoke)
+- [x] Doc en `API-ENDPOINTS.md`
+
+#### 2. Usuarios
+- [x] `GET /admin/users` — paginado + search (email/nombre) + filtros (role, plan, expiringSoon); soft-deleted excluded (filtro soft-deleted aparte)
+- [x] Soft-delete admin de usuario (endpoint dedicado; confirma que no es hard delete)
+- [x] Reutilizar grant/revoke existentes (por email; FE lo dispara desde la fila)
+- [x] Doc en `API-ENDPOINTS.md` (stats, users, soft-delete, grant extend / plan por rol)
+
+#### 3. Suscripciones / ops (después)
+- [ ] (Opc.) filtro `expired` / listado dedicado de paid / expiring / expired
+- [ ] (Opc.) audit log de grant/revoke
+- [ ] (Opc.) `coachName` (o populate) en `GET /admin/users` para la card Coach
+- [ ] (Opc.) restore / anular soft-delete
+
+#### 4. Coaches / sistema (más adelante)
+- [ ] Endpoints de cuota / límites si la UI de coaches lo pide
+- [ ] Jobs o endpoints de cleanup soft-delete si hacen falta
+
 ### Resto
 
 - [ ] Migrar más excepciones a `ApiErrorCode` (auth, ownership, export…)

@@ -19,14 +19,14 @@ export class GrantSubscriptionDto {
     enum: GRANTABLE_SUBSCRIPTION_PLANS,
     example: SubscriptionPlan.Premium,
     description:
-      'Paid plan to grant. Athlete: premium. Coach: growth | pro (premium not recommended for coaches).',
+      'Paid plan to grant. Athlete: premium only. Coach: growth | pro. Not allowed for admin.',
   })
   plan: GrantableSubscriptionPlan;
 
   @ApiPropertyOptional({
     example: 30,
     description:
-      'Days of access from now (ignored if expiresAt is set). Default 30.',
+      'Days of access to add. If the user already has an active paid plan, days are added to the current expiresAt; otherwise they start from now. Ignored if expiresAt is set. Default 30.',
   })
   durationDays?: number;
 

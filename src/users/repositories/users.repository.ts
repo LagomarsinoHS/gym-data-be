@@ -293,6 +293,158 @@ export class UsersRepository {
     return result.matchedCount > 0;
   }
 
+  /**
+   * Active-user aggregates for admin Overview.
+   * Soft-deleted users are excluded.
+   */
+  async getAdminStats(): Promise<{
+    users: {
+      total: number;
+      byRole: { athlete: number; coach: number; admin: number };
+    };
+    subscriptions: {
+      byPlan: {
+        free: number;
+        premium: number;
+        growth: number;
+        pro: number;
+      };
+      paidExpiringSoon: number;
+    };
+    signups: { last7Days: number; last30Days: number };
+  }> {
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const since7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const since30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [
+      total,
+      roleRows,
+      planRows,
+      paidExpiringSoon,
+      signups7,
+      signups30,
+    ] = await Promise.all([
+      this.userModel.countDocuments(NOT_DELETED).exec(),
+      this.userModel
+        .aggregate<{ _id: string; count: number }>([
+          { $match: NOT_DELETED },
+          { $group: { _id: '$role', count: { $sum: 1 } } },
+        ])
+        .exec(),
+      this.userModel
+        .aggregate<{ _id: string; count: number }>([
+          { $match: NOT_DELETED },
+          { $group: { _id: '$subscription.plan', count: { $sum: 1 } } },
+        ])
+        .exec(),
+      this.userModel
+        .countDocuments({
+          ...NOT_DELETED,
+          'subscription.plan': { $ne: SubscriptionPlan.Free },
+          'subscription.expiresAt': { $gte: now, $lte: in7Days },
+        })
+        .exec(),
+      this.userModel
+        .countDocuments({ ...NOT_DELETED, createdAt: { $gte: since7 } })
+        .exec(),
+      this.userModel
+        .countDocuments({ ...NOT_DELETED, createdAt: { $gte: since30 } })
+        .exec(),
+    ]);
+
+    const byRole = { athlete: 0, coach: 0, admin: 0 };
+    for (const row of roleRows) {
+      if (row._id === Role.Athlete) byRole.athlete = row.count;
+      else if (row._id === Role.Coach) byRole.coach = row.count;
+      else if (row._id === Role.Admin) byRole.admin = row.count;
+    }
+
+    const byPlan = { free: 0, premium: 0, growth: 0, pro: 0 };
+    for (const row of planRows) {
+      if (row._id === SubscriptionPlan.Free) byPlan.free = row.count;
+      else if (row._id === SubscriptionPlan.Premium) byPlan.premium = row.count;
+      else if (row._id === SubscriptionPlan.Growth) byPlan.growth = row.count;
+      else if (row._id === SubscriptionPlan.Pro) byPlan.pro = row.count;
+    }
+
+    return {
+      users: { total, byRole },
+      subscriptions: { byPlan, paidExpiringSoon },
+      signups: { last7Days: signups7, last30Days: signups30 },
+    };
+  }
+
+  async findAdminUsers(
+    skip: number,
+    limit: number,
+    filters: {
+      search?: string;
+      role?: Role;
+      plan?: SubscriptionPlan;
+      expiringSoon?: boolean;
+    },
+  ): Promise<UserDocument[]> {
+    return this.userModel
+      .find(this.buildAdminUsersFilter(filters))
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+  }
+
+  async countAdminUsers(filters: {
+    search?: string;
+    role?: Role;
+    plan?: SubscriptionPlan;
+    expiringSoon?: boolean;
+  }): Promise<number> {
+    return this.userModel
+      .countDocuments(this.buildAdminUsersFilter(filters))
+      .exec();
+  }
+
+  private buildAdminUsersFilter(filters: {
+    search?: string;
+    role?: Role;
+    plan?: SubscriptionPlan;
+    expiringSoon?: boolean;
+  }): Record<string, unknown> {
+    const filter: Record<string, unknown> = { ...NOT_DELETED };
+
+    if (filters.role) filter.role = filters.role;
+    if (filters.plan) filter['subscription.plan'] = filters.plan;
+
+    if (filters.expiringSoon) {
+      const now = new Date();
+      const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      filter['subscription.plan'] = { $ne: SubscriptionPlan.Free };
+      filter['subscription.expiresAt'] = { $gte: now, $lte: in7Days };
+      // Explicit plan filter overrides "not free" when both are set.
+      if (filters.plan) {
+        if (filters.plan === SubscriptionPlan.Free) {
+          // Impossible combo: no free user is "paid expiring".
+          filter.id = '__none__';
+        } else {
+          filter['subscription.plan'] = filters.plan;
+        }
+      }
+    }
+
+    const search = filters.search?.trim();
+    if (search) {
+      const rx = new RegExp(this.escapeRegex(search), 'i');
+      filter.$or = [
+        { 'profile.firstName': rx },
+        { 'profile.lastName': rx },
+        { email: rx },
+      ];
+    }
+
+    return filter;
+  }
+
   private buildAthletesByCoachFilter(
     coachId: string,
     search?: string,

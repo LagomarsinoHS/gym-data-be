@@ -658,26 +658,86 @@ Cada item:
 
 Requieren **JWT** con **role `admin`**.
 
+### `GET /admin/stats`
+
+| | |
+|---|---|
+| Auth | JWT + **admin** |
+| Respuesta | `200` — overview aggregates (soft-deleted excluded) |
+| Errores | `403` si el role no es admin |
+
+```json
+{
+  "users": {
+    "total": 51,
+    "byRole": { "athlete": 42, "coach": 8, "admin": 1 }
+  },
+  "subscriptions": {
+    "byPlan": { "free": 40, "premium": 6, "growth": 3, "pro": 2 },
+    "paidExpiringSoon": 2
+  },
+  "signups": {
+    "last7Days": 5,
+    "last30Days": 18
+  }
+}
+```
+
+`paidExpiringSoon`: plan ≠ `free` y `subscription.expiresAt` entre ahora y +7 días.
+
+### `GET /admin/users`
+
+| | |
+|---|---|
+| Auth | JWT + **admin** |
+| Respuesta | `200` — `PaginatedResponse<AdminUserListItemDto>` (soft-deleted excluded) |
+| Errores | `403` si el role no es admin |
+
+**Query**
+
+| Campo | | Notas |
+|---|---|---|
+| `page` / `limit` | Opcional | default 1 / 50 (max 100) |
+| `search` | Opcional | `profile.firstName`, `profile.lastName`, o `email` |
+| `role` | Opcional | `athlete` \| `coach` \| `admin` |
+| `plan` | Opcional | `free` \| `premium` \| `growth` \| `pro` |
+| `expiringSoon` | Opcional | `true` → solo paid con `expiresAt` en los próximos 7 días |
+
+Item slim: `id`, `email`, `role`, `profile`, `goal`, `subscription`, `coachId`, `createdAt`.
+
+### `DELETE /admin/users/:userId`
+
+| | |
+|---|---|
+| Auth | JWT + **admin** |
+| Respuesta | `200` — `{ ok: true }` |
+| Errores | `403` si no es admin o si `:userId` es el propio admin; `404` si no existe / ya está dado de baja |
+
+Soft-delete: solo setea `deletedAt` (igual que `DELETE /users/me`). No limpia `coachId` ni relaciones. El usuario deja de aparecer en listados y no puede volver a loguearse.
+
 ### `POST /admin/subscriptions/grant`
 
 | | |
 |---|---|
 | Auth | JWT + **admin** |
 | Respuesta | `200` — `{ id, email, role, subscription }` (slim; no es `MeResponseDto`) |
-| Errores | `403` si el role no es admin |
+| Errores | `403` si el role no es admin; `400` si el `plan` no corresponde al rol del target |
 
 **Body**
 
 | Campo | | Notas |
 |---|---|---|
 | `email` | Obligatorio | email único del target |
-| `plan` | Obligatorio | `premium` \| `growth` \| `pro` (no `free`) |
-| `durationDays` | Opcional† | días desde ahora (1–3650). Default **30** si no mandás `expiresAt` |
-| `expiresAt` | Opcional† | fecha `YYYY-MM-DD`; el plan dura hasta el **final de ese día UTC** |
+| `plan` | Obligatorio | según rol del target (ver abajo); no `free` |
+| `durationDays` | Opcional† | días a sumar (1–3650). Si el target ya tiene plan pago **activo**, se suman a `expiresAt` actual; si no, parten desde ahora. Default **30** si no mandás `expiresAt` |
+| `expiresAt` | Opcional† | fecha absoluta `YYYY-MM-DD`; el plan dura hasta el **final de ese día UTC** (pisa / fija vencimiento) |
 
 † Podés omitir ambos (`durationDays` / `expiresAt`) → 30 días. No mandar los dos a la vez.
 
-Athlete → suele usarse `premium`. Coach → `growth` o `pro` (`premium` en un coach cae al cupo free).
+Plan permitido por rol del target:
+- **athlete** → solo `premium`
+- **coach** → `growth` \| `pro`
+- **admin** → no se puede grant (400)
 
 ```json
 {
@@ -827,5 +887,5 @@ Growth (coach) ejemplo:
 | Auth | 2 | público |
 | Exercises | 5 | público (+ recommend JWT + paid) |
 | Users | 17 | JWT |
-| Admin | 2 | JWT + admin (grant, revoke) |
+| Admin | 5 | JWT + admin (stats, users, soft-delete, grant, revoke) |
 | **Total** | **26** | |

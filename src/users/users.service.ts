@@ -722,6 +722,45 @@ export class UsersService {
     await this.usersRepository.clearSubscriptionToFree(userId);
   }
 
+  getAdminStats() {
+    return this.usersRepository.getAdminStats();
+  }
+
+  async listAdminUsers(
+    page: number,
+    limit: number,
+    filters: {
+      search?: string;
+      role?: Role;
+      plan?: SubscriptionPlan;
+      expiringSoon?: boolean;
+    },
+  ): Promise<{ data: UserDocument[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.usersRepository.findAdminUsers(skip, limit, filters),
+      this.usersRepository.countAdminUsers(filters),
+    ]);
+    return { data, total };
+  }
+
+  /**
+   * Admin soft-delete: sets `deletedAt` only (same as self-delete).
+   * Cannot soft-delete your own admin account via this path.
+   */
+  async adminSoftDeleteUser(
+    requesterUserId: string,
+    targetUserId: string,
+  ): Promise<OkResponseDto> {
+    if (requesterUserId === targetUserId) {
+      throw new ForbiddenException('You cannot soft-delete your own account here');
+    }
+
+    const user = await this.findByIdOrFail(targetUserId);
+    await this.usersRepository.softDeleteById(user.id);
+    return { ok: true };
+  }
+
   // STORAGE
 
   /**
