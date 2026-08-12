@@ -94,10 +94,11 @@ npm run migrate:user-profile  # one-off: flatten firstName/… → profile.*
 | Exercises | Listado, labels, random, by id, recommend (IA) |
 | Training program | Add / remove / edit (atleta); replace + export Excel/PDF (coach) |
 | Invites | Create, respond, pending, history, athletes + cupos por plan |
-| Progress photos | Upload / delete / GET timeline (self o coach); peso mensual |
+| Progress photos | Upload / GET timeline + analyze (self o coach); peso mensual; DELETE descartado |
 | Perfil | `GET/PATCH /users/me` con `profile` (`firstName`, `lastName`, `heightCm`, `sex`, `birthDate`) + `goal` top-level; foto; soft-delete |
 | AI | `AiModule` / `AiService` (Gemini): `recommendWorkout`, `analyzeProgressPhotos` |
-| Admin | Grant / revoke subscription |
+| Admin | Stats, users list, soft-delete, grant / revoke subscription |
+| Coach templates | `GET\|POST\|PUT /coach/templates` + apply a alumnos |
 
 Roles: `athlete` | `coach` | `admin`.  
 Subscription: `free` | `premium` | `growth` | `pro` (cuotas de alumnos por plan en coaches).
@@ -118,7 +119,8 @@ Cloudinary:
 | `exercises` | Catálogo, labels, random, recommend |
 | `storage` | Cloudinary: `uploadImage`, `deleteImage`, `deleteFolder` |
 | `ai` | Puerto `AiService` + adapter Gemini (`recommendWorkout`, `analyzeProgressPhotos`) |
-| `admin` | Grant / revoke subscription |
+| `admin` | Stats, users, soft-delete, grant / revoke |
+| `coach-templates` | Biblioteca de plantillas + apply a alumnos |
 | `excel` · `pdf` · `zip` | Export de planes coach (Excel, PDF, ZIP multi-alumno) |
 | `database` | Conexión Mongo |
 | `common` | Pipes Joi, hashing, error codes HTTP |
@@ -131,6 +133,7 @@ Flujo típico: `Controller → Service → Repository → MongoDB` (fotos: Servi
 src/
   admin/
   auth/           # JWT, guards, strategies
+  coach-templates/
   common/         # dto, pipes, hashing, errors
   config/         # validación de env
   database/

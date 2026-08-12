@@ -72,7 +72,7 @@ Checklist:
 - [~] ~~Atleta: `DELETE /users/me/progress-photos`~~ — descartado (sin producto; se reemplaza al volver a subir)
 - [x] **GET único** `GET /users/:userId/progress-photos` — `{ currentWeightKg, years: [...] }`; authz self ó coach asignado; query opcional `?year=2026`
 - [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
-- [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / DELETE / GET)
+- [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / GET / analyze)
 - [x] `currentWeightKg` también en `MeResponseDto` (`/me`, coach athletes)
 
 > **Storage en uso:** `uploadImage`, `deleteImage`, `deleteFolder` vía progress-photos en `UsersService`. No hay endpoint admin de upload ni list/get de Cloudinary.
