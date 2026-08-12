@@ -102,9 +102,21 @@ export class UsersRepository {
   }
 
   async create(user: CreateUserData): Promise<Omit<User, 'password'>> {
-    const created = await this.userModel.create(user);
+    const created = await this.userModel.create({
+      ...user,
+      lastLoginAt: new Date(),
+    });
     const { password: _password, ...safeUser } = created.toObject();
     return safeUser;
+  }
+
+  async touchLastLoginAt(userId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: userId, ...NOT_DELETED },
+        { $set: { lastLoginAt: new Date() } },
+      )
+      .exec();
   }
 
   async setCoachTrainingProgram(
@@ -390,11 +402,16 @@ export class UsersRepository {
       role?: Role;
       plan?: SubscriptionPlan;
       expiringSoon?: boolean;
+      sortBy?: 'lastLoginAt' | 'createdAt';
+      sortDir?: 'asc' | 'desc';
     },
   ): Promise<UserDocument[]> {
+    const sortField =
+      filters.sortBy === 'createdAt' ? 'createdAt' : 'lastLoginAt';
+    const sortDir = filters.sortDir === 'asc' ? 1 : -1;
     return this.userModel
       .find(this.buildAdminUsersFilter(filters))
-      .sort({ createdAt: -1 })
+      .sort({ [sortField]: sortDir })
       .skip(skip)
       .limit(limit)
       .exec();

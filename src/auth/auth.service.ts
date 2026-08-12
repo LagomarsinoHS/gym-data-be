@@ -62,7 +62,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return { accessToken: await this.signAccessToken(user.id, user.role) };
+    const [accessToken] = await Promise.all([
+      this.signAccessToken(user.id, user.role),
+      this.usersService.touchLastLoginAt(user.id),
+    ]);
+
+    return { accessToken };
   }
 
   private signAccessToken(userId: string, role: Role): Promise<string> {

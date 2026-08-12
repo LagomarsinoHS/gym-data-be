@@ -237,6 +237,12 @@ export class MeResponseDto {
   })
   currentWeightKg: number | null;
 
+  @ApiProperty({
+    example: '2026-08-12T18:00:00.000Z',
+    description: 'Last successful login or registration',
+  })
+  lastLoginAt: Date;
+
   @ApiPropertyOptional({ example: '2026-07-28T22:35:00.000Z' })
   createdAt?: Date;
 

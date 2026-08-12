@@ -64,6 +64,8 @@ export class AdminService {
         role: query.role,
         plan: query.plan,
         expiringSoon: query.expiringSoon,
+        sortBy: query.sortBy ?? 'lastLoginAt',
+        sortDir: query.sortDir ?? 'desc',
       },
     );
 
@@ -170,6 +172,7 @@ export class AdminService {
         expiresAt: user.subscription?.expiresAt ?? null,
       },
       coachId: user.coachId ?? null,
+      lastLoginAt: user.lastLoginAt,
       createdAt: user.createdAt,
     };
   }

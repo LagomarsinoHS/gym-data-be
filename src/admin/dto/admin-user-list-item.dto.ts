@@ -48,6 +48,12 @@ export class AdminUserListItemDto {
   })
   coachId: string | null;
 
+  @ApiProperty({
+    example: '2026-08-12T18:00:00.000Z',
+    description: 'Last successful login or registration',
+  })
+  lastLoginAt: Date;
+
   @ApiProperty({ example: '2026-01-15T12:00:00.000Z' })
   createdAt: Date;
 }

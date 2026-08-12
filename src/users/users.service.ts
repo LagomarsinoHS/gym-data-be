@@ -130,6 +130,10 @@ export class UsersService {
     return this.usersRepository.create(data);
   }
 
+  touchLastLoginAt(userId: string): Promise<void> {
+    return this.usersRepository.touchLastLoginAt(userId);
+  }
+
   /**
    * Soft-delete by email after verifying it belongs to the JWT user.
    * Only sets `deletedAt`; leaves coachId and related data intact.
@@ -291,6 +295,7 @@ export class UsersService {
       profilePhoto: this.toMeProfilePhoto(profilePhoto),
       coach: await this.resolveAssignedCoach(user.coachId),
       currentWeightKg: user.currentWeightKg ?? null,
+      lastLoginAt: user.lastLoginAt,
       coachQuota: await this.buildCoachQuota(user),
       trainingProgram: this.enrichTrainingProgram(trainingProgram, byId),
       coachTrainingProgram: this.enrichCoachTrainingProgram(
@@ -746,6 +751,8 @@ export class UsersService {
       role?: Role;
       plan?: SubscriptionPlan;
       expiringSoon?: boolean;
+      sortBy?: 'lastLoginAt' | 'createdAt';
+      sortDir?: 'asc' | 'desc';
     },
   ): Promise<{ data: UserDocument[]; total: number }> {
     const skip = (page - 1) * limit;
