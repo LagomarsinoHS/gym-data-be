@@ -73,7 +73,7 @@ export class AdminController {
   @ApiOperation({
     summary: 'List users for admin',
     description:
-      'Active users only (excludes soft-deleted). Optional search (name/email), role, plan, and expiringSoon filters. Newest first.',
+      'Active users only (excludes soft-deleted). Optional search (name/email), role, plan, expiringSoon, sortBy (lastLoginAt|createdAt), sortDir (asc|desc). Default sort: lastLoginAt desc.',
   })
   @ApiOkResponse({ type: PaginatedResponse })
   @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })

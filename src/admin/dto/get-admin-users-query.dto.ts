@@ -7,6 +7,12 @@ import {
 import { Role } from '../../users/types/role.enum';
 import { SubscriptionPlan } from '../../users/types/subscription-plan.enum';
 
+export const ADMIN_USERS_SORT_BY = ['lastLoginAt', 'createdAt'] as const;
+export type AdminUsersSortBy = (typeof ADMIN_USERS_SORT_BY)[number];
+
+export const ADMIN_USERS_SORT_DIR = ['asc', 'desc'] as const;
+export type AdminUsersSortDir = (typeof ADMIN_USERS_SORT_DIR)[number];
+
 export class GetAdminUsersQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     example: 'ana',
@@ -29,6 +35,22 @@ export class GetAdminUsersQueryDto extends PaginationQueryDto {
       'If true, only paid users whose subscription.expiresAt is within the next 7 days',
   })
   expiringSoon?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ADMIN_USERS_SORT_BY,
+    example: 'lastLoginAt',
+    default: 'lastLoginAt',
+    description: 'Sort field',
+  })
+  sortBy?: AdminUsersSortBy;
+
+  @ApiPropertyOptional({
+    enum: ADMIN_USERS_SORT_DIR,
+    example: 'desc',
+    default: 'desc',
+    description: 'Sort direction',
+  })
+  sortDir?: AdminUsersSortDir;
 }
 
 export const getAdminUsersQuerySchema = Joi.object<GetAdminUsersQueryDto>({
@@ -41,4 +63,10 @@ export const getAdminUsersQuerySchema = Joi.object<GetAdminUsersQueryDto>({
     .valid(...Object.values(SubscriptionPlan))
     .optional(),
   expiringSoon: Joi.boolean().optional(),
+  sortBy: Joi.string()
+    .valid(...ADMIN_USERS_SORT_BY)
+    .default('lastLoginAt'),
+  sortDir: Joi.string()
+    .valid(...ADMIN_USERS_SORT_DIR)
+    .default('desc'),
 });

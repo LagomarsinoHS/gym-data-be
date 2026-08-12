@@ -16,6 +16,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "migrate:user-profile": "node --env-file=.env scripts/migrate-user-profile.mjs",
+    "migrate:last-login-at": "node --env-file=.env scripts/migrate-last-login-at.mjs",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",

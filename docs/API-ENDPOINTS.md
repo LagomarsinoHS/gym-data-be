@@ -34,6 +34,7 @@ El front traduce por `code`. Ver sección [API error codes](#api-error-codes) ab
 |---|---|
 | Auth | No |
 | Respuesta | `201` — `{ accessToken }` (el perfil completo se obtiene con `GET /users/me`) |
+| Notas | Setea `lastLoginAt` al crear la cuenta |
 
 **Body**
 
@@ -63,7 +64,7 @@ El front traduce por `code`. Ver sección [API error codes](#api-error-codes) ab
 |---|---|
 | Auth | No |
 | Respuesta | `200` — `{ accessToken }` |
-| Notas | Cuentas soft-deleted (`deletedAt`) se tratan como credenciales inválidas |
+| Notas | Cuentas soft-deleted (`deletedAt`) se tratan como credenciales inválidas. Actualiza `lastLoginAt`. |
 
 **Body**
 
@@ -196,7 +197,7 @@ Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 |---|---|
 | Auth | JWT |
 | Body | — |
-| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`, `profilePhoto`, `profile: { firstName, lastName, heightCm, sex, birthDate }`, y `goal` a nivel raíz (`null` si no se setearon). Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
+| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`, `profilePhoto`, `profile: { firstName, lastName, heightCm, sex, birthDate }`, `goal` a nivel raíz, y `lastLoginAt`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
 
 Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
 
@@ -774,8 +775,10 @@ Requieren **JWT** con **role `admin`**.
 | `role` | Opcional | `athlete` \| `coach` \| `admin` |
 | `plan` | Opcional | `free` \| `premium` \| `growth` \| `pro` |
 | `expiringSoon` | Opcional | `true` → solo paid con `expiresAt` en los próximos 7 días |
+| `sortBy` | Opcional | `lastLoginAt` (default) \| `createdAt` |
+| `sortDir` | Opcional | `desc` (default) \| `asc` |
 
-Item slim: `id`, `email`, `role`, `profile`, `goal`, `subscription`, `coachId`, `createdAt`.
+Item slim: `id`, `email`, `role`, `profile`, `goal`, `subscription`, `coachId`, `lastLoginAt`, `createdAt`.
 
 ### `DELETE /admin/users/:userId`
 

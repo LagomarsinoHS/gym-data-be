@@ -273,6 +273,13 @@ export class User {
   @Prop({ type: Number, default: null })
   currentWeightKg: number | null;
 
+  @ApiProperty({
+    example: '2026-08-12T18:00:00.000Z',
+    description: 'Last successful login or registration',
+  })
+  @Prop({ type: Date, required: true })
+  lastLoginAt: Date;
+
   @ApiPropertyOptional({
     example: '2026-08-02T18:00:00.000Z',
     description:
