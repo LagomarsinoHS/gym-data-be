@@ -167,10 +167,7 @@ export class UsersRepository {
 
   async clearAthleteCoach(athleteId: string): Promise<void> {
     await this.userModel
-      .updateOne(
-        { id: athleteId, ...NOT_DELETED },
-        { $set: { coachId: null } },
-      )
+      .updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachId: null } })
       .exec();
   }
 

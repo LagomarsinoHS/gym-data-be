@@ -74,7 +74,10 @@ export class NutritionPlanDto {
   @ApiProperty({ example: 'Pauta de definición' })
   title: string;
 
-  @ApiProperty({ enum: NutritionPlanStatus, example: NutritionPlanStatus.Active })
+  @ApiProperty({
+    enum: NutritionPlanStatus,
+    example: NutritionPlanStatus.Active,
+  })
   status: NutritionPlanStatus;
 
   @ApiPropertyOptional({ enum: UserGoal, nullable: true })

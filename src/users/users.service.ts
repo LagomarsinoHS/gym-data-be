@@ -589,17 +589,7 @@ export class UsersService {
     athleteId: string,
     dto: SetCoachTrainingProgramDto,
   ): Promise<MeResponseDto> {
-    const athlete = await this.findByIdOrFail(athleteId);
-
-    if (athlete.role !== Role.Athlete) {
-      throw new NotFoundException('Athlete not found');
-    }
-
-    if (athlete.coachId !== coachId) {
-      throw new ForbiddenException(
-        'You can only edit athletes assigned to you',
-      );
-    }
+    await this.requireAssignedAthlete(coachId, athleteId);
 
     await this.usersRepository.setCoachTrainingProgram(
       athleteId,
@@ -613,7 +603,7 @@ export class UsersService {
     coachId: string,
     athleteId: string,
   ): Promise<AthleteNutritionDto> {
-    const athlete = await this.assertCoachOwnsAthlete(coachId, athleteId);
+    const athlete = await this.requireAssignedAthlete(coachId, athleteId);
     return toAthleteNutritionDto(athlete.nutrition);
   }
 
@@ -622,8 +612,8 @@ export class UsersService {
     athleteId: string,
     dto: SetAthleteNutritionDto,
   ): Promise<AthleteNutritionDto> {
-    await this.assertCoachOwnsAthlete(coachId, athleteId);
-    const coach = await this.findByIdOrFail(coachId);
+    await this.requireAssignedAthlete(coachId, athleteId);
+    const updatedBy = await this.getPersonSnapshot(coachId);
 
     const nutrition: AthleteNutrition = {
       dailyActivity: dto.dailyActivity ?? null,
@@ -644,36 +634,18 @@ export class UsersService {
       restrictions: normalizeFoodTags(dto.restrictions),
       notes: dto.notes?.trim() || null,
       updatedAt: new Date(),
-      updatedBy: {
-        id: coach.id,
-        firstName: String(coach.profile?.firstName || '').trim(),
-        lastName: String(coach.profile?.lastName || '').trim(),
-      },
+      updatedBy,
     };
 
     await this.usersRepository.setAthleteNutrition(athleteId, nutrition);
     return toAthleteNutritionDto(nutrition);
   }
 
+  /**
+   * Coach must still be assigned to the athlete. Throws 404 if not an athlete,
+   * 403 if assigned to someone else.
+   */
   async requireAssignedAthlete(
-    coachId: string,
-    athleteId: string,
-  ): Promise<UserDocument> {
-    return this.assertCoachOwnsAthlete(coachId, athleteId);
-  }
-
-  async getPersonSnapshot(
-    userId: string,
-  ): Promise<{ id: string; firstName: string; lastName: string }> {
-    const user = await this.findByIdOrFail(userId);
-    return {
-      id: user.id,
-      firstName: String(user.profile?.firstName || '').trim(),
-      lastName: String(user.profile?.lastName || '').trim(),
-    };
-  }
-
-  private async assertCoachOwnsAthlete(
     coachId: string,
     athleteId: string,
   ): Promise<UserDocument> {
@@ -690,6 +662,25 @@ export class UsersService {
     }
 
     return athlete;
+  }
+
+  /** Name snapshot for embeds (`updatedBy`, nutritionPlans coach/athlete). */
+  toPersonSnapshot(user: UserDocument | User): {
+    id: string;
+    firstName: string;
+    lastName: string;
+  } {
+    return {
+      id: user.id,
+      firstName: String(user.profile?.firstName || '').trim(),
+      lastName: String(user.profile?.lastName || '').trim(),
+    };
+  }
+
+  async getPersonSnapshot(
+    userId: string,
+  ): Promise<{ id: string; firstName: string; lastName: string }> {
+    return this.toPersonSnapshot(await this.findByIdOrFail(userId));
   }
 
   async exportCoachTrainingPrograms(
@@ -1006,18 +997,10 @@ export class UsersService {
     targetUserId: string,
     year?: number,
   ): Promise<ProgressPhotosResponseDto> {
-    const target = await this.findByIdOrFail(targetUserId);
-
-    const isSelf = requester.userId === targetUserId;
-    const isAssignedCoach =
-      requester.role === Role.Coach && target.coachId === requester.userId;
-
-    if (!isSelf && !isAssignedCoach) {
-      throw new ForbiddenException(
-        'You can only view your own progress photos or those of your athletes',
-      );
-    }
-
+    const target = await this.requireSelfOrAssignedCoach(
+      requester,
+      targetUserId,
+    );
     return groupProgressPhotos(target.progressPhotos ?? [], year);
   }
 
@@ -1030,13 +1013,7 @@ export class UsersService {
     athleteId: string,
     dto: AnalyzeProgressPhotosDto,
   ): Promise<AnalyzeProgressPhotosResponseDto> {
-    const athlete = await this.findByIdOrFail(athleteId);
-
-    if (athlete.role !== Role.Athlete || athlete.coachId !== coachId) {
-      throw new ForbiddenException(
-        'You can only analyze progress photos of your athletes',
-      );
-    }
+    const athlete = await this.requireAssignedAthlete(coachId, athleteId);
 
     const [firstYearMonth, secondYearMonth] = dto.yearMonths;
     const olderYearMonth =
@@ -1095,6 +1072,27 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
     return user;
+  }
+
+  /**
+   * Progress photos: athlete self, or the coach still assigned to that athlete.
+   */
+  private async requireSelfOrAssignedCoach(
+    requester: { userId: string; role: Role },
+    targetUserId: string,
+  ): Promise<UserDocument> {
+    const target = await this.findByIdOrFail(targetUserId);
+    const isSelf = requester.userId === targetUserId;
+    const isAssignedCoach =
+      requester.role === Role.Coach && target.coachId === requester.userId;
+
+    if (!isSelf && !isAssignedCoach) {
+      throw new ForbiddenException(
+        'You can only view your own progress photos or those of your athletes',
+      );
+    }
+
+    return target;
   }
 
   private validateUploadedImageFile(file?: ProgressPhotoUploadFile): void {
@@ -1182,10 +1180,8 @@ export class UsersService {
     if (!coachId) return null;
     const coach = await this.usersRepository.findById(coachId);
     if (!coach) return null;
-    return {
-      firstName: coach.profile.firstName,
-      lastName: coach.profile.lastName,
-    };
+    const { firstName, lastName } = this.toPersonSnapshot(coach);
+    return { firstName, lastName };
   }
 
   /**

@@ -313,9 +313,7 @@ export class UsersController {
   @ApiForbiddenResponse({ description: 'Requires athlete role' })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiConflictResponse({ description: 'No coach assigned' })
-  leaveCoach(
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<MeResponseDto> {
+  leaveCoach(@CurrentUser() user: AuthenticatedUser): Promise<MeResponseDto> {
     return this.usersService.leaveCoach(user.userId);
   }
 

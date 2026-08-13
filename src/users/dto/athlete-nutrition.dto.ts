@@ -173,7 +173,12 @@ export const setAthleteNutritionSchema = Joi.object<SetAthleteNutritionDto>({
   avgDurationMin: Joi.number().integer().min(0).max(300).allow(null),
   dailySteps: Joi.number().integer().min(0).max(100000).allow(null),
   weeklyCardioMin: Joi.number().integer().min(0).max(1000).allow(null),
-  extraActivity: Joi.string().trim().max(200).allow('', null).empty('').default(null),
+  extraActivity: Joi.string()
+    .trim()
+    .max(200)
+    .allow('', null)
+    .empty('')
+    .default(null),
   trainingTime: nullableTime,
   trainFasted: Joi.string()
     .valid(...Object.values(NutritionTrainFasted))

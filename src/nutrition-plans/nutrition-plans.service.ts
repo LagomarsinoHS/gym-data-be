@@ -38,11 +38,7 @@ export class NutritionPlansService {
 
     const created = await this.plansRepository.create({
       id: randomUUID(),
-      athlete: {
-        id: athlete.id,
-        firstName: String(athlete.profile?.firstName || '').trim(),
-        lastName: String(athlete.profile?.lastName || '').trim(),
-      },
+      athlete: this.usersService.toPersonSnapshot(athlete),
       coach,
       title: dto.title.trim(),
       status: NutritionPlanStatus.Active,
@@ -159,7 +155,9 @@ export class NutritionPlansService {
   async softDelete(athleteId: string, planId: string): Promise<void> {
     const plan = await this.loadVisiblePlan(athleteId, Role.Athlete, planId);
     if (plan.status !== NutritionPlanStatus.Archived) {
-      throw new ConflictException('Only archived nutrition plans can be deleted');
+      throw new ConflictException(
+        'Only archived nutrition plans can be deleted',
+      );
     }
 
     const updated = await this.plansRepository.updateById(planId, {
