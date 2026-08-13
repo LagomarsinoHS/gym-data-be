@@ -24,10 +24,12 @@ Detalle de producto / UI: FE `docs/TODO.md`.
 
 ### Pauta
 
-- [ ] Colección `nutritionPlans` (schema listo; CRUD + vistas después)
-- [ ] Coach asignado: create/update; atleta (self) + coach: get; authz como `coachTrainingProgram`
+- [x] Colección `nutritionPlans` + CRUD (`POST/GET/PUT` + `PATCH .../archive` + `DELETE` soft)
+- [x] Coach asignado: create/update/archive; atleta (self) + coach creador asignado: list/get; atleta: soft-delete archivadas
 - [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
-- [ ] Doc en `API-ENDPOINTS.md`
+- [x] Doc en `API-ENDPOINTS.md`
+- [x] Vista FE atleta (`athlete-nutrition`) — ver / soft-delete archivadas
+- [ ] Vista FE coach — crear / editar / archivar; al guardar ordenar `meals` por `time` (HH:mm; sin hora al final)
 
 ---
 

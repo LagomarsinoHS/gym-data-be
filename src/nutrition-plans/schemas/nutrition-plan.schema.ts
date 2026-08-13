@@ -135,6 +135,14 @@ export class NutritionPlan {
   @Prop({ type: String, default: null })
   generalNotes: string | null;
 
+  @ApiPropertyOptional({
+    example: '2026-08-13T18:00:00.000Z',
+    description:
+      'Present only when the athlete soft-deleted the plan. Active/archived plans omit this field.',
+  })
+  @Prop({ type: Date, required: false })
+  deletedAt?: Date;
+
   @ApiProperty({ example: '2026-08-13T16:00:00.000Z' })
   createdAt?: Date;
 

@@ -655,6 +655,24 @@ export class UsersService {
     return toAthleteNutritionDto(nutrition);
   }
 
+  async requireAssignedAthlete(
+    coachId: string,
+    athleteId: string,
+  ): Promise<UserDocument> {
+    return this.assertCoachOwnsAthlete(coachId, athleteId);
+  }
+
+  async getPersonSnapshot(
+    userId: string,
+  ): Promise<{ id: string; firstName: string; lastName: string }> {
+    const user = await this.findByIdOrFail(userId);
+    return {
+      id: user.id,
+      firstName: String(user.profile?.firstName || '').trim(),
+      lastName: String(user.profile?.lastName || '').trim(),
+    };
+  }
+
   private async assertCoachOwnsAthlete(
     coachId: string,
     athleteId: string,

@@ -807,6 +807,121 @@ Reemplaza el perfil nutricional. Authz igual que el GET. Tags de alimentos se no
 
 ---
 
+## Nutrition plans
+
+Colección `nutritionPlans` (uuid `id` + `_id` Mongo). Snapshots `athlete` / `coach`: `{ id, firstName, lastName }`.  
+`status`: `active` \| `archived`. Soft-delete atleta: `deletedAt` (list/get lo omiten).  
+Authz como plan de entrenamiento: **coach asignado** escribe; atleta ve las suyas; atleta puede soft-delete solo archivadas.
+
+Tras unlink (`coachId = null`) el coach viejo pierde acceso; el atleta sigue listando sus pautas (no borradas). Un coach nuevo no ve las del anterior (`coach.id` del snapshot).
+
+**`meals`:** se persisten en el orden del body. Convención de producto: la UI coach debe enviarlas ordenadas por `time` (`HH:mm`); sin hora al final. El FE atleta no reordena.
+### `POST /nutrition-plans`
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `201` — `NutritionPlanDto` (`status: active`) |
+| Errores | `403` si no es el coach asignado; `404` si el atleta no existe |
+
+**Body**
+
+| Campo | | Notas |
+|---|---|---|
+| `athleteId` | Obligatorio | UUID del atleta asignado |
+| `title` | Obligatorio | máx. 120 |
+| `goal` | Opcional | `strength` \| `hypertrophy` \| `fat_loss` \| `general` \| `null` |
+| `validFrom` | Obligatorio | ISO date |
+| `validUntil` | Opcional | ISO date o `null` |
+| `targets` | Obligatorio | `{ calories, proteinG, carbsG, fatG }` (números ≥ 0) |
+| `meals` | Opcional | máx. 12; cada una `{ name, time?, foods[{ name, quantity, unit }], notes? }`. Orden = orden del array (UI coach debe ordenar por `time`) |
+| `generalNotes` | Opcional | máx. 4000 o `null` |
+
+```json
+{
+  "athleteId": "ee923be1-1192-460e-89ee-2275d4d3f206",
+  "title": "Pauta de definición",
+  "goal": "fat_loss",
+  "validFrom": "2026-08-13T00:00:00.000Z",
+  "validUntil": null,
+  "targets": { "calories": 2200, "proteinG": 160, "carbsG": 220, "fatG": 70 },
+  "meals": [
+    {
+      "name": "Desayuno",
+      "time": "08:00",
+      "foods": [{ "name": "Avena", "quantity": 80, "unit": "g" }],
+      "notes": null
+    }
+  ],
+  "generalNotes": null
+}
+```
+
+---
+
+### `GET /nutrition-plans`
+
+| | |
+|---|---|
+| Auth | JWT + **athlete** o **coach** |
+| Respuesta | `200` — `{ data: NutritionPlanDto[] }` (más reciente primero) |
+| Errores | Coach sin `athleteId` → `400`; coach no asignado → `403` |
+
+**Query**
+
+| Campo | | Notas |
+|---|---|---|
+| `athleteId` | Coach: obligatorio. Atleta: se ignora (siempre self) | UUID |
+| `status` | Opcional | `active` \| `archived` |
+
+---
+
+### `GET /nutrition-plans/:planId`
+
+| | |
+|---|---|
+| Auth | JWT + **athlete** o **coach** |
+| Respuesta | `200` — `NutritionPlanDto` |
+| Errores | `404` si no existe o no es visible; coach no asignado → `403` |
+
+Atleta: `athlete.id` = JWT. Coach: creó el plan (`coach.id` = JWT) **y** sigue asignado a ese atleta.
+
+---
+
+### `PUT /nutrition-plans/:planId`
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `200` — `NutritionPlanDto` |
+| Errores | `403` no asignado; `404` no es su pauta; `409` si está `archived` |
+
+Body parcial (al menos un campo): `title`, `goal`, `validFrom`, `validUntil`, `targets`, `meals`, `generalNotes`. No cambia snapshots ni `status`. Si viene `meals`, el orden del array se persiste tal cual (UI coach: ordenar por `time`).
+
+---
+
+### `PATCH /nutrition-plans/:planId/archive`
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Respuesta | `200` — `NutritionPlanDto` (`status: archived`) |
+| Errores | Igual que el PUT (idempotente si ya estaba archived) |
+
+---
+
+### `DELETE /nutrition-plans/:planId`
+
+| | |
+|---|---|
+| Auth | JWT + **athlete** |
+| Respuesta | `204` |
+| Errores | `404` si no existe / no es suya / ya estaba borrada; `409` si la pauta no está `archived` |
+
+Soft-delete: setea `deletedAt`. List/get la omiten. Solo pautas **archivadas**.
+
+---
+
 ## Admin
 
 Requieren **JWT** con **role `admin`**.
