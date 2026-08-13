@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, SchemaTypes } from 'mongoose';
+import { NutritionDailyActivity } from '../types/nutrition-daily-activity.enum';
+import { NutritionDietType } from '../types/nutrition-diet-type.enum';
+import { NutritionTrainFasted } from '../types/nutrition-train-fasted.enum';
 import { Role } from '../types/role.enum';
 import { SubscriptionPlan } from '../types/subscription-plan.enum';
 import { UserGoal } from '../types/user-goal.enum';
@@ -170,6 +173,126 @@ export class UserProfile {
   birthDate: string | null;
 }
 
+@Schema({ _id: false })
+export class NutritionMeal {
+  @ApiProperty({ example: 'Desayuno' })
+  @Prop({ required: true, trim: true })
+  name: string;
+
+  @ApiPropertyOptional({
+    example: '08:00',
+    nullable: true,
+    description: 'HH:mm or null if unset',
+  })
+  @Prop({ type: String, default: null })
+  time: string | null;
+}
+
+@Schema({ _id: false })
+export class NutritionUpdatedBy {
+  @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
+  @Prop({ required: true })
+  id: string;
+
+  @ApiProperty({ example: 'Ana' })
+  @Prop({ required: true, trim: true, default: '' })
+  firstName: string;
+
+  @ApiProperty({ example: 'García' })
+  @Prop({ required: true, trim: true, default: '' })
+  lastName: string;
+}
+
+@Schema({ _id: false })
+export class AthleteNutrition {
+  @ApiPropertyOptional({
+    enum: NutritionDailyActivity,
+    nullable: true,
+    example: NutritionDailyActivity.Sedentary,
+  })
+  @Prop({ type: String, enum: NutritionDailyActivity, default: null })
+  dailyActivity: NutritionDailyActivity | null;
+
+  @ApiPropertyOptional({ example: 4, nullable: true })
+  @Prop({ type: Number, default: null })
+  trainingsPerWeek: number | null;
+
+  @ApiPropertyOptional({ example: 75, nullable: true })
+  @Prop({ type: Number, default: null })
+  avgDurationMin: number | null;
+
+  @ApiPropertyOptional({ example: 6500, nullable: true })
+  @Prop({ type: Number, default: null })
+  dailySteps: number | null;
+
+  @ApiPropertyOptional({ example: 60, nullable: true })
+  @Prop({ type: Number, default: null })
+  weeklyCardioMin: number | null;
+
+  @ApiPropertyOptional({ example: 'Caminatas', nullable: true })
+  @Prop({ type: String, default: null })
+  extraActivity: string | null;
+
+  @ApiPropertyOptional({
+    example: '18:00',
+    nullable: true,
+    description: 'HH:mm or null if unset',
+  })
+  @Prop({ type: String, default: null })
+  trainingTime: string | null;
+
+  @ApiPropertyOptional({
+    enum: NutritionTrainFasted,
+    nullable: true,
+    example: NutritionTrainFasted.AfterMeal,
+  })
+  @Prop({ type: String, enum: NutritionTrainFasted, default: null })
+  trainFasted: NutritionTrainFasted | null;
+
+  @ApiProperty({ type: [NutritionMeal], default: [] })
+  @Prop({ type: [NutritionMeal], default: [] })
+  meals: NutritionMeal[];
+
+  @ApiProperty({ type: [String], default: [] })
+  @Prop({ type: [String], default: [] })
+  likes: string[];
+
+  @ApiProperty({ type: [String], default: [] })
+  @Prop({ type: [String], default: [] })
+  avoids: string[];
+
+  @ApiPropertyOptional({
+    enum: NutritionDietType,
+    nullable: true,
+    example: NutritionDietType.None,
+  })
+  @Prop({ type: String, enum: NutritionDietType, default: null })
+  dietType: NutritionDietType | null;
+
+  @ApiProperty({ type: [String], default: [] })
+  @Prop({ type: [String], default: [] })
+  restrictions: string[];
+
+  @ApiPropertyOptional({ example: null, nullable: true })
+  @Prop({ type: String, default: null })
+  notes: string | null;
+
+  @ApiPropertyOptional({
+    example: '2026-08-13T16:00:00.000Z',
+    nullable: true,
+  })
+  @Prop({ type: Date, default: null })
+  updatedAt: Date | null;
+
+  @ApiPropertyOptional({
+    type: NutritionUpdatedBy,
+    nullable: true,
+    description: 'Coach snapshot that last saved this profile',
+  })
+  @Prop({ type: SchemaTypes.Mixed, default: null })
+  updatedBy: NutritionUpdatedBy | string | null;
+}
+
 @Schema({ timestamps: true, collection: 'users', id: false })
 export class User {
   @ApiProperty({ example: 'a3f1c8e2-4b9d-4e1a-9c7f-2d8e6b1a0f45' })
@@ -254,6 +377,15 @@ export class User {
   })
   @Prop({ type: [ProgressPhotoMonth], default: [] })
   progressPhotos: ProgressPhotoMonth[];
+
+  @ApiPropertyOptional({
+    type: AthleteNutrition,
+    nullable: true,
+    description:
+      'Coach-managed nutrition profile. Not returned on /me — dedicated coach endpoints.',
+  })
+  @Prop({ type: AthleteNutrition, default: null })
+  nutrition: AthleteNutrition | null;
 
   @ApiPropertyOptional({
     type: ProgressPhoto,

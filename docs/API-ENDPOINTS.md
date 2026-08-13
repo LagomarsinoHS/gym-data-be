@@ -197,7 +197,7 @@ Rutas con `@Roles(...)` además exigen ese role → `403` si no coincide.
 |---|---|
 | Auth | JWT |
 | Body | — |
-| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`, `profilePhoto`, `profile: { firstName, lastName, heightCm, sex, birthDate }`, `goal` a nivel raíz, y `lastLoginAt`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. |
+| Respuesta | `200` — perfil enriquecido (`MeResponseDto`), incluye `subscription`, `profilePhoto`, `profile: { firstName, lastName, heightCm, sex, birthDate }`, `goal` a nivel raíz, y `lastLoginAt`. Si el atleta tiene `coachId`, también `coach: { firstName, lastName }`; si no, `coach: null`. Si `role === coach`, también `coachQuota: { athleteLimit, athleteCount, canInvite }`; si no, `coachQuota: null`. No incluye `nutrition`, `progressPhotos` ni `coachTemplates` (endpoints dedicados). |
 
 Al responder, si el user tenía un plan pago (`premium` / `growth` / `pro`) y `expiresAt` ya pasó, el backend lo normaliza a `free` antes de devolverlo.
 
@@ -278,6 +278,19 @@ Cloudinary: `gym-app/profiles/{userId}/profilePhoto` (overwrite al re-subir). En
 | Body | — |
 | Respuesta | `200` — `{ invite: null \| { coachId, invitedAt, coach } }` |
 | Errores | `403` si el role no es athlete |
+
+---
+
+### `DELETE /users/me/coach`
+
+| | |
+|---|---|
+| Auth | JWT + **athlete** |
+| Body | — |
+| Respuesta | `200` — `MeResponseDto` (`coach: null`, `coachId: null`) |
+| Errores | `403` si el role no es athlete; `409` `NO_COACH_ASSIGNED` si no hay coach |
+
+Quita el vínculo (`coachId = null`). No borra `nutrition`, `nutritionPlans`, `coachTrainingProgram` ni fotos. No es baja de cuenta.
 
 ---
 
@@ -727,6 +740,73 @@ Cada item:
 
 ---
 
+### `GET /users/coach/athletes/:athleteId/nutrition`
+
+Perfil nutricional del atleta (hábitos, preferencias, restricciones). No se expone en `GET /users/me`.
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Path | `athleteId` — UUID |
+| Respuesta | `200` — `AthleteNutritionDto` (defaults vacíos si nunca se guardó) |
+| Errores | `403` si no es el coach asignado; `404` si el atleta no existe |
+
+Campos: `dailyActivity` (`sedentary` \| `standing` \| `active` \| `demanding`), `trainingsPerWeek`, `avgDurationMin`, `dailySteps`, `weeklyCardioMin`, `extraActivity`, `trainingTime` (`HH:mm`), `trainFasted` (`after_meal` \| `fasted`), `meals[]` (`name`, `time`), `likes[]`, `avoids[]`, `dietType` (`none` \| `vegetarian` \| `vegan` \| `other`), `restrictions[]`, `notes`, `updatedAt`, `updatedBy` (`{ id, firstName, lastName }` o `null`; un string legacy se normaliza a `{ id, firstName: '', lastName: '' }`).
+
+---
+
+### `PUT /users/coach/athletes/:athleteId/nutrition`
+
+Reemplaza el perfil nutricional. Authz igual que el GET. Tags de alimentos se normalizan a Title Case sin tildes.
+
+| | |
+|---|---|
+| Auth | JWT + **coach** |
+| Path | `athleteId` — UUID |
+| Respuesta | `200` — `AthleteNutritionDto` guardado (`updatedAt` + snapshot `updatedBy` del coach) |
+| Errores | `400` payload inválido; `403` / `404` igual que el GET |
+
+**Body** (todos opcionales / nullable; omitido → `null` o `[]`)
+
+| Campo | | Notas |
+|---|---|---|
+| `dailyActivity` | Opcional | enum o `null` |
+| `trainingsPerWeek` | Opcional | 0–14 o `null` |
+| `avgDurationMin` | Opcional | 0–300 o `null` |
+| `dailySteps` | Opcional | 0–100000 o `null` |
+| `weeklyCardioMin` | Opcional | 0–1000 o `null` |
+| `extraActivity` | Opcional | string o `null` |
+| `trainingTime` | Opcional | `HH:mm` o `null` |
+| `trainFasted` | Opcional | enum o `null` |
+| `meals` | Opcional | máx. 8; `name` 1–80; `time` `HH:mm` o `null` |
+| `likes` / `avoids` / `restrictions` | Opcional | máx. 30 tags × 40 chars |
+| `dietType` | Opcional | enum o `null` |
+| `notes` | Opcional | máx. 2000 o `null` |
+
+```json
+{
+  "dailyActivity": "sedentary",
+  "trainingsPerWeek": 4,
+  "avgDurationMin": 75,
+  "dailySteps": 6500,
+  "weeklyCardioMin": 60,
+  "extraActivity": "Caminatas",
+  "trainingTime": "18:00",
+  "trainFasted": "after_meal",
+  "meals": [
+    { "name": "Desayuno", "time": "08:00" },
+    { "name": "Almuerzo", "time": null }
+  ],
+  "likes": ["Pollo", "Arroz"],
+  "avoids": ["Pescado"],
+  "dietType": "none",
+  "restrictions": [],
+  "notes": null
+}
+```
+
+---
+
 ## Admin
 
 Requieren **JWT** con **role `admin`**.
@@ -909,6 +989,7 @@ Códigos estables para i18n en el client (`code` + `message` EN de debug):
 | `ALREADY_YOUR_ATHLETE` | 409 | El atleta ya tiene `coachId` = el coach que invita |
 | `ATHLETE_ALREADY_HAS_COACH` | 409 | El atleta ya tiene otro coach asignado |
 | `NO_PENDING_COACH_INVITE` | 409 | Respond sin pending |
+| `NO_COACH_ASSIGNED` | 409 | `DELETE /users/me/coach` sin coach vinculado |
 | `CURRENT_PASSWORD_INCORRECT` | 400 | `PATCH /users/me` con `newPassword` y contraseña actual incorrecta |
 | `AI_REQUEST_FAILED` | 502 | Error / respuesta vacía o JSON inválido de la IA |
 | `PAID_SUBSCRIPTION_REQUIRED` | 403 | `recommend` / `progress-photos/analyze` con plan free o pago vencido |

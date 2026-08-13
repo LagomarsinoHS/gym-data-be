@@ -6,6 +6,7 @@ export enum ApiErrorCode {
   AlreadyYourAthlete = 'ALREADY_YOUR_ATHLETE',
   AthleteAlreadyHasCoach = 'ATHLETE_ALREADY_HAS_COACH',
   NoPendingCoachInvite = 'NO_PENDING_COACH_INVITE',
+  NoCoachAssigned = 'NO_COACH_ASSIGNED',
   CurrentPasswordIncorrect = 'CURRENT_PASSWORD_INCORRECT',
   AiRequestFailed = 'AI_REQUEST_FAILED',
   PaidSubscriptionRequired = 'PAID_SUBSCRIPTION_REQUIRED',

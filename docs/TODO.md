@@ -1,153 +1,69 @@
 # Gym Data BE — TODO
 
-Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).
+Solo pendientes. Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).  
+Detalle de producto / UI: FE `docs/TODO.md`.
 
-## Hecho (back)
+---
 
-- [x] Auth JWT (`sub` + `role`) + `JwtAuthGuard` + `RolesGuard` / `@Roles(...)`
-- [x] Perfil enriquecido: programs, `subscription`, `coachQuota` (null si no coach)
-- [x] Training program: agregar / quitar / editar pauta
-- [x] Exercises: listado, filtros, labels, random, by id, search bilingüe, recommend (IA)
-- [x] User: `subscription` (`free` \| `premium` \| `growth` \| `pro`), `role`, `coachId`, `coachTrainingProgram`
-- [x] Coach athlete limits: free 5 / growth 10 / pro 20; enforce en invite + accept
-- [x] Register: `role: athlete | coach` (admin solo DB)
-- [x] Colección **`invites`** + flujo coach/athlete (create, respond, pending, history, athletes)
-- [x] Coach training program replace + export Excel/ZIP
-- [x] Export PDF (`format: pdf` on same export endpoint; módulo `pdf` + pdfmake)
-- [x] Admin: grant / revoke subscription (`plan` requerido en grant: premium | growth | pro)
-- [x] API error codes estables para invites/cuota (`COACH_ATHLETE_QUOTA_FULL`, etc.)
-- [x] Módulo `ai` (`AiService` port + `GeminiAiProvider`; `recommendWorkout` / `analyzeProgressPhotos`); env opcional `GEMINI_API_KEY` + `GEMINI_MODEL`
-- [x] Coach templates (`CoachTemplatesModule`): `GET|POST|PUT /coach/templates` + `POST /coach/templates/apply` (1..N plantillas × 1..N alumnos; response con pares + `sessions` enriquecidas)
+## Prioridad
 
-> FE: menú de cuenta (iniciales/foto + dropdown). **Mi perfil** cableado (lectura, foto, editar, baja). **Configuración** aún deshabilitada en FE.
-> La **baja de cuenta** (soft-delete / `deletedAt`) vive en **Mi perfil** (`DELETE /users/me`), no en Configuración.
+1. **Nutrición** — pauta alimenticia coach → atleta
+2. **PDF brand** — datos de marca en export
+3. **Admin** — ops opcionales (expired, audit, restore…)
+4. **Resto** — preferencias, prompts, ApiErrorCode, etc.
 
-## Pendiente — back
+---
 
-### Invite pre-registro (email aunque el atleta no exista + TTL 24h)
+## Nutrición — pauta alimenticia (coach → atleta)
 
-> Detalle FE en `docs/TODO.md` § Onboarding / Invite pre-registro.
+### Perfil nutricional (coach)
 
-- [x] Schema Invite: `athleteId` opcional; índice único pending por email / athleteId
-- [x] Create invite sin exigir user existente; `EMAIL_NOT_AN_ATHLETE` si el email es coach/admin
-- [x] Register athlete: link pending invites by email
-- [x] Cleanup pending > 24h (TTL parcial Mongo + deleteExpiredPending oportunista)
-- [x] Doc `API-ENDPOINTS.md` + codes
+- [x] `User.nutrition` embebido (hábitos / preferencias / restricciones)
+- [x] GET/PUT `/users/coach/athletes/:athleteId/nutrition` (authz coach asignado; no va en `/me`)
+- [x] Doc en `API-ENDPOINTS.md`
 
-### PDF brand (export con marca del coach)
+### Pauta
 
-> Detalle de producto / UI en FE `docs/TODO.md` § PDF brand.
+- [ ] Colección `nutritionPlans` (schema listo; CRUD + vistas después)
+- [ ] Coach asignado: create/update; atleta (self) + coach: get; authz como `coachTrainingProgram`
+- [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
+- [ ] Doc en `API-ENDPOINTS.md`
+
+---
+
+## PDF brand (export con marca del coach)
 
 - [ ] Incluir en el PDF: coach (nombre), atleta, fecha; logo/profilePhoto si hay URL
 - [ ] Pasar brand al `PdfService` desde export (users → pdf); pie “Preparado por {Coach}”
 - [ ] (Opc.) acentos / ocultar marca ExerciseDB en planes pagos
 - [ ] Doc en `API-ENDPOINTS.md` si el body/export gana campos de brand
 
-### Fotos de progreso (atleta → Cloudinary → coach)
+---
 
-Modelo en `User` (array `progressPhotos`, mismo estilo que `trainingProgram`):
+## Cuenta / vínculo
 
-```ts
-progressPhotos: {
-  yearMonth: string; // 'YYYY-MM' — único por usuario; default = mes UTC actual (opcional en el POST)
-  weightKg: number | null; // peso del avance de ese mes
-  front: { url: string; publicId: string; uploadedAt: Date } | null;
-  back:  { url: string; publicId: string; uploadedAt: Date } | null;
-}[]
+- [x] **Dejar coach** (athlete unlink) — `DELETE /users/me/coach` (`coachId = null`; no borra nutrition ni planes)
+- [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
+- [ ] (Opc.) `cancelReason` en Invite cuando se cancela por cuota
 
-// Denormalizado en User:
-currentWeightKg: number | null; // = weightKg del yearMonth más reciente con peso
-```
+---
 
-- Máx **2 fotos por mes**: `front` y `back` (reemplazar el mismo side reescribe el slot; overwrite vía publicId fijo).
-- Guardar `url` (`secureUrl`) para render + `publicId` para delete/replace.
-- No usar nombres de mes en BD; el FE traduce `1 → Enero`.
-- **Regla de envío:** `POST` multipart exige `weightKg` **y** ≥ 1 foto (`front` y/o `back`). `yearMonth` opcional (`YYYY-MM`, no futuro; omitir = mes UTC actual). Setea el peso de ese mes y recalcula `currentWeightKg`.
+## Admin — siguientes
 
-Checklist:
-- [x] Módulo `storage` (Cloudinary): `uploadImage` / `deleteImage` / `deleteFolder` (usado solo desde progress-photos)
-- [x] Schema: `progressPhotos` en `User` (default `[]`)
-- [x] Schema: `weightKg` por mes + `currentWeightKg` en `User` (recompute al mutar)
-- [x] Atleta: `POST /users/me/progress-photos` — multipart `weightKg` + `yearMonth?` + `front`? + `back`? (≥1 foto); Cloudinary `gym-app/progress/{userId}/{YYYY}/{mon}/{side}`; upsert mes (actual o backfill); setea `weightKg` + `currentWeightKg`
-- [~] ~~Atleta: `DELETE /users/me/progress-photos`~~ — descartado (sin producto; se reemplaza al volver a subir)
-- [x] **GET único** `GET /users/:userId/progress-photos` — `{ currentWeightKg, years: [...] }`; authz self ó coach asignado; query opcional `?year=2026`
-- [x] Reemplazo: mismo `side` del mes → overwrite en Cloudinary (sin delete aparte)
-- [x] Doc progress-photos en `API-ENDPOINTS.md` (POST / GET / analyze)
-- [x] `currentWeightKg` también en `MeResponseDto` (`/me`, coach athletes)
+Overview + Usuarios + grant/revoke ya están.
 
-> **Storage en uso:** `uploadImage`, `deleteImage`, `deleteFolder` vía progress-photos en `UsersService`. No hay endpoint admin de upload ni list/get de Cloudinary.
-
-Response del GET:
-
-```json
-{
-  "currentWeightKg": 72.5,
-  "years": [
-    {
-      "year": 2026,
-      "months": [
-        {
-          "month": 1,
-          "yearMonth": "2026-01",
-          "weightKg": 72.5,
-          "front": { "url": "...", "uploadedAt": "..." },
-          "back": { "url": "...", "uploadedAt": "..." }
-        }
-      ]
-    }
-  ]
-}
-```
-
-> `publicId` se guarda en Mongo para delete/replace en el back; el GET puede omitirlo y devolver solo lo que pinta el front.
-
-### Nutrición — pauta alimenticia (coach → atleta)
-
-> Detalle de producto / UI en FE `docs/TODO.md` § Nutrición.
-
-- [ ] Modelo de pauta nutricional por atleta (texto y/o archivo; definir versión/historial)
-- [ ] Coach asignado: create/update; atleta (self) + coach: get; authz como `coachTrainingProgram`
-- [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
-- [ ] Doc en `API-ENDPOINTS.md`
-
-### Admin panel
-
-> Detalle de producto / UI en FE `docs/TODO.md` § Admin panel.  
-> Listo: Overview (`GET /admin/stats`), Usuarios (`GET /admin/users` + soft-delete), grant/revoke por email (extiende `expiresAt` si el plan pago sigue activo).
-
-#### 1. Overview (primera)
-- [x] `GET /admin/stats` — agregados: totales por `role`, totales por `subscription.plan`, count paid por vencer (< 7 días); altas 7/30 días
-- [x] Auth: JWT + `RolesGuard` `@Roles(Admin)` (como grant/revoke)
-- [x] Doc en `API-ENDPOINTS.md`
-
-#### 2. Usuarios
-- [x] `GET /admin/users` — paginado + search (email/nombre) + filtros (role, plan, expiringSoon); soft-deleted excluded (filtro soft-deleted aparte)
-- [x] Soft-delete admin de usuario (endpoint dedicado; confirma que no es hard delete)
-- [x] Reutilizar grant/revoke existentes (por email; FE lo dispara desde la fila)
-- [x] Doc en `API-ENDPOINTS.md` (stats, users, soft-delete, grant extend / plan por rol)
-
-#### 3. Suscripciones / ops (después)
 - [ ] (Opc.) filtro `expired` / listado dedicado de paid / expiring / expired
 - [ ] (Opc.) audit log de grant/revoke
 - [ ] (Opc.) `coachName` (o populate) en `GET /admin/users` para la card Coach
 - [ ] (Opc.) restore / anular soft-delete
-
-#### 4. Coaches / sistema (más adelante)
 - [ ] Endpoints de cuota / límites si la UI de coaches lo pide
 - [ ] Jobs o endpoints de cleanup soft-delete si hacen falta
 
-### Resto
+---
+
+## Resto
 
 - [ ] Migrar más excepciones a `ApiErrorCode` (auth, ownership, export…)
-- [x] Recommend IA — `GET /exercises/recommend` (zone + 1–2 equipment → candidatos slim → AI 4 ejercicios con `sets`/`reps`/`rest` + `note`)
-- [ ] (Más adelante) Recommend: modo `from_plan` / `discover`
 - [ ] (Opc.) endpoints granulares de plan coach (hoy replace completo)
-- [x] **Mi perfil** — `PATCH /users/me` (`profile` / `goal` / password); `POST /users/me/profile-photo` → Cloudinary `gym-app/profiles/{userId}/profilePhoto`; expuesto en `/me` como `{ url, uploadedAt }`
-- [x] **Perfil corporal opcional** — `User.profile` (`firstName`, `lastName`, `heightCm`, `sex`, `birthDate`) + `goal` top-level; `/me` + `PATCH /users/me` (`null` limpia opcionales); no van en register (register mapea nombre → `profile`)
-- [x] Migrar users flat → `profile` en Mongo: `npm run migrate:user-profile`
+- [ ] (Más adelante) Recommend: modo `from_plan` / `discover`
 - [ ] (Más adelante) Usar height/sex/birthDate/goal en prompts de recommend / analyze progress
-- [ ] **Configuración** — preferencias de usuario (tema/idioma/etc.) si se sincronizan cross-device
-- [x] **Baja de cuenta** — `DELETE /users/me` setea `deletedAt` (soft-delete por email + match JWT); UI en Mi perfil (FE).
-  - Acuerdo: **no** limpia `coachId` / plan / invites (el user desaparece de Mis alumnos por el filtro `deletedAt`, libera cupo). Distinto de “dejar al coach” (unlink activo).
-- [ ] **Dejar coach** (athlete unlink) — endpoint + UI: quitar `coachId`, opcional archivar/cancelar vínculo; no es soft-delete de cuenta
-- [ ] (Opc.) `cancelReason` en Invite cuando se cancela por cuota

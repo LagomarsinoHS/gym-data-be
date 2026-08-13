@@ -89,6 +89,11 @@ import {
   setCoachTrainingProgramSchema,
 } from './dto/set-coach-training-program.dto';
 import {
+  AthleteNutritionDto,
+  SetAthleteNutritionDto,
+  setAthleteNutritionSchema,
+} from './dto/athlete-nutrition.dto';
+import {
   UpdateTrainingProgramExerciseDto,
   updateTrainingProgramExerciseSchema,
 } from './dto/update-training-program-exercise.dto';
@@ -293,6 +298,25 @@ export class UsersController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PendingCoachInviteResponseDto> {
     return this.usersService.getPendingCoachInvite(user.userId);
+  }
+
+  @Delete('me/coach')
+  @Roles(Role.Athlete)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Leave the assigned coach',
+    description:
+      'Clears `coachId` for the authenticated athlete. Does not delete nutrition, nutrition plans, training programs, or photos. Not account deactivation.',
+  })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiForbiddenResponse({ description: 'Requires athlete role' })
+  @ApiNotFoundResponse({ description: 'User not found' })
+  @ApiConflictResponse({ description: 'No coach assigned' })
+  leaveCoach(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MeResponseDto> {
+    return this.usersService.leaveCoach(user.userId);
   }
 
   @Post('me/pending-coach-invite/respond')
@@ -517,6 +541,58 @@ export class UsersController {
       athleteId,
       dto,
     );
+  }
+
+  @Get('coach/athletes/:athleteId/nutrition')
+  @Roles(Role.Coach)
+  @ApiOperation({
+    summary: 'Get an assigned athlete nutrition profile',
+    description:
+      'Returns the coach-managed nutrition profile. Empty defaults if never saved. Not included in GET /users/me.',
+  })
+  @ApiParam({
+    name: 'athleteId',
+    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
+  })
+  @ApiOkResponse({ type: AthleteNutritionDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'Athlete not found' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires coach role, or athlete is not assigned to this coach',
+  })
+  getAthleteNutrition(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('athleteId') athleteId: string,
+  ): Promise<AthleteNutritionDto> {
+    return this.usersService.getAthleteNutrition(user.userId, athleteId);
+  }
+
+  @Put('coach/athletes/:athleteId/nutrition')
+  @Roles(Role.Coach)
+  @ApiOperation({
+    summary: 'Replace an assigned athlete nutrition profile',
+  })
+  @ApiParam({
+    name: 'athleteId',
+    example: 'ee923be1-1192-460e-89ee-2275d4d3f206',
+  })
+  @ApiBody({ type: SetAthleteNutritionDto })
+  @ApiOkResponse({ type: AthleteNutritionDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid token' })
+  @ApiNotFoundResponse({ description: 'Athlete not found' })
+  @ApiForbiddenResponse({
+    description:
+      'Requires coach role, or athlete is not assigned to this coach',
+  })
+  @ApiBadRequestResponse({ description: 'Invalid nutrition payload' })
+  setAthleteNutrition(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('athleteId') athleteId: string,
+    @Body(new JoiValidationPipe(setAthleteNutritionSchema))
+    dto: SetAthleteNutritionDto,
+  ): Promise<AthleteNutritionDto> {
+    return this.usersService.setAthleteNutrition(user.userId, athleteId, dto);
   }
 
   // ===========================================================================

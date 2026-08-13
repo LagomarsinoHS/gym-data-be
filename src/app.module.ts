@@ -6,6 +6,7 @@ import { CoachTemplatesModule } from './coach-templates/coach-templates.module';
 import { envValidationSchema } from './config/env.validation';
 import { DatabaseModule } from './database/database.module';
 import { ExercisesModule } from './exercises/exercises.module';
+import { NutritionPlansModule } from './nutrition-plans/nutrition-plans.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { UsersModule } from './users/users.module';
     DatabaseModule,
     ExercisesModule,
     UsersModule,
+    NutritionPlansModule,
     CoachTemplatesModule,
     AuthModule,
     AdminModule,

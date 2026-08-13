@@ -24,6 +24,7 @@ import { HashingService } from '../common/hashing/hashing.service';
 import { UsersRepository } from './repositories/users.repository';
 import { InvitesRepository } from './repositories/invites.repository';
 import {
+  AthleteNutrition,
   CoachTrainingProgram,
   ProgressPhoto,
   ProgressPhotoMonth,
@@ -49,6 +50,12 @@ import { CoachInviteResponseAction } from './dto/respond-coach-invite.dto';
 import { ExportCoachTrainingProgramDto } from './dto/export-coach-training-program.dto';
 import type { ExportCoachTrainingProgramFormat } from './types/export-coach-training-program-format';
 import { SetCoachTrainingProgramDto } from './dto/set-coach-training-program.dto';
+import {
+  AthleteNutritionDto,
+  SetAthleteNutritionDto,
+  toAthleteNutritionDto,
+} from './dto/athlete-nutrition.dto';
+import { normalizeFoodTags } from './utils/normalize-food-tag';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UploadProgressPhotoResponseDto } from './dto/upload-progress-photo-response.dto';
 import { UploadProgressPhotoDto } from './dto/upload-progress-photo.dto';
@@ -153,6 +160,22 @@ export class UsersService {
 
     await this.usersRepository.softDeleteById(user.id);
     return { ok: true };
+  }
+
+  /**
+   * Athlete unlinks their assigned coach. Does not clear nutrition or plans.
+   */
+  async leaveCoach(athleteId: string): Promise<MeResponseDto> {
+    const athlete = await this.findByIdOrFail(athleteId);
+    if (!athlete.coachId) {
+      throwApiConflict(
+        ApiErrorCode.NoCoachAssigned,
+        'No coach is assigned to this athlete',
+      );
+    }
+
+    await this.usersRepository.clearAthleteCoach(athleteId);
+    return this.getEnrichedUserById(athleteId);
   }
 
   /**
@@ -268,6 +291,7 @@ export class UsersService {
       coachTrainingProgram,
       coachTemplates: _coachTemplates,
       progressPhotos: _progressPhotos,
+      nutrition: _nutrition,
       profilePhoto,
       profile,
       ...safeUser
@@ -583,6 +607,71 @@ export class UsersService {
     );
 
     return this.getEnrichedUserById(athleteId);
+  }
+
+  async getAthleteNutrition(
+    coachId: string,
+    athleteId: string,
+  ): Promise<AthleteNutritionDto> {
+    const athlete = await this.assertCoachOwnsAthlete(coachId, athleteId);
+    return toAthleteNutritionDto(athlete.nutrition);
+  }
+
+  async setAthleteNutrition(
+    coachId: string,
+    athleteId: string,
+    dto: SetAthleteNutritionDto,
+  ): Promise<AthleteNutritionDto> {
+    await this.assertCoachOwnsAthlete(coachId, athleteId);
+    const coach = await this.findByIdOrFail(coachId);
+
+    const nutrition: AthleteNutrition = {
+      dailyActivity: dto.dailyActivity ?? null,
+      trainingsPerWeek: dto.trainingsPerWeek ?? null,
+      avgDurationMin: dto.avgDurationMin ?? null,
+      dailySteps: dto.dailySteps ?? null,
+      weeklyCardioMin: dto.weeklyCardioMin ?? null,
+      extraActivity: dto.extraActivity?.trim() || null,
+      trainingTime: dto.trainingTime ?? null,
+      trainFasted: dto.trainFasted ?? null,
+      meals: (dto.meals ?? []).map((meal) => ({
+        name: meal.name.trim(),
+        time: meal.time || null,
+      })),
+      likes: normalizeFoodTags(dto.likes),
+      avoids: normalizeFoodTags(dto.avoids),
+      dietType: dto.dietType ?? null,
+      restrictions: normalizeFoodTags(dto.restrictions),
+      notes: dto.notes?.trim() || null,
+      updatedAt: new Date(),
+      updatedBy: {
+        id: coach.id,
+        firstName: String(coach.profile?.firstName || '').trim(),
+        lastName: String(coach.profile?.lastName || '').trim(),
+      },
+    };
+
+    await this.usersRepository.setAthleteNutrition(athleteId, nutrition);
+    return toAthleteNutritionDto(nutrition);
+  }
+
+  private async assertCoachOwnsAthlete(
+    coachId: string,
+    athleteId: string,
+  ): Promise<UserDocument> {
+    const athlete = await this.findByIdOrFail(athleteId);
+
+    if (athlete.role !== Role.Athlete) {
+      throw new NotFoundException('Athlete not found');
+    }
+
+    if (athlete.coachId !== coachId) {
+      throw new ForbiddenException(
+        'You can only edit athletes assigned to you',
+      );
+    }
+
+    return athlete;
   }
 
   async exportCoachTrainingPrograms(

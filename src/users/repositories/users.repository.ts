@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
+  AthleteNutrition,
   CoachTrainingProgram,
   ProgressPhoto,
   ProgressPhotoMonth,
@@ -131,6 +132,15 @@ export class UsersRepository {
       .exec();
   }
 
+  async setAthleteNutrition(
+    athleteId: string,
+    nutrition: AthleteNutrition,
+  ): Promise<void> {
+    await this.userModel
+      .updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { nutrition } })
+      .exec();
+  }
+
   async setCoachTemplates(
     coachId: string,
     coachTemplates: CoachTrainingProgram[],
@@ -152,6 +162,15 @@ export class UsersRepository {
 
     await this.userModel
       .updateOne({ id: athleteId, ...NOT_DELETED }, { $set: { coachId } })
+      .exec();
+  }
+
+  async clearAthleteCoach(athleteId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { id: athleteId, ...NOT_DELETED },
+        { $set: { coachId: null } },
+      )
       .exec();
   }
 
