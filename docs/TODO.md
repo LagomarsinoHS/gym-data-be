@@ -3,6 +3,8 @@
 Solo pendientes. Catálogo de endpoints: [`API-ENDPOINTS.md`](./API-ENDPOINTS.md).  
 Detalle de producto / UI: FE `docs/TODO.md`.
 
+> **FE V estable — 2026-08-13.** El frontend marcó snapshot estable (nutrición list/read/archive, admin polish, cleanup). BE nutrition CRUD ya shipped; pendiente FE create/edit de pauta.
+
 ---
 
 ## Prioridad
@@ -26,10 +28,12 @@ Detalle de producto / UI: FE `docs/TODO.md`.
 
 - [x] Colección `nutritionPlans` + CRUD (`POST/GET/PUT` + `PATCH .../archive` + `DELETE` soft)
 - [x] Coach asignado: create/update/archive; atleta (self) + coach creador asignado: list/get; atleta: soft-delete archivadas
-- [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
 - [x] Doc en `API-ENDPOINTS.md`
-- [x] Vista FE atleta (`athlete-nutrition`) — ver / soft-delete archivadas
-- [ ] Vista FE coach — crear / editar / archivar; al guardar ordenar `meals` por `time` (HH:mm; sin hora al final)
+- [x] Vista FE atleta (`athlete-nutrition`)
+- [x] Vista FE coach — sección **Pauta** en Nutrición (list/read/archive; separada del perfil)
+- [ ] Vista FE coach — create/edit + prefill desde `nutrition.meals` + sort por `time` al guardar
+- [ ] (V2) Targets sugeridos desde antropometría / actividad / goal (coach puede editar)
+- [ ] Storage si hay PDF/imagen (reutilizar Cloudinary si aplica)
 
 ---
 
