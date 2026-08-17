@@ -56,9 +56,13 @@ npm run start:dev
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret | … |
 | `GEMINI_API_KEY` | API key Gemini (**required**) | `…` |
 | `GEMINI_MODEL` | Modelo por defecto | `gemini-3.6-flash` |
+| `RESEND_API_KEY` | API key Resend (opcional). Sin ella los mails se omiten | `re_…` |
+| `RESEND_FROM` | Remitente. Hasta verificar dominio usá `beth.t@example.com` | `ExerciseDB <beth.t@example.com>` |
+| `APP_PUBLIC_URL` | URL del frontend para el CTA de invites | `https://tu-app.vercel.app` |
 
 > No subas el `.env`. Está en `.gitignore`.  
-> Sin `GEMINI_API_KEY` la app **no arranca** (validación en boot). Errores de llamada → `AI_REQUEST_FAILED`.
+> Sin `GEMINI_API_KEY` la app **no arranca** (validación en boot). Errores de llamada → `AI_REQUEST_FAILED`.  
+> `RESEND_API_KEY` es opcional: sin ella el boot avisa y `send*` no envía (la invite sigue existiendo en DB). Hasta verificar un dominio, Resend solo entrega a tu propio email con `from: beth.t@example.com`.
 
 ```env
 PORT=3000
@@ -72,6 +76,9 @@ CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
 GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-3.6-flash
+RESEND_API_KEY=
+RESEND_FROM=ExerciseDB <beth.t@example.com>
+APP_PUBLIC_URL=http://localhost:5500
 ```
 
 ## Scripts
@@ -119,6 +126,7 @@ Cloudinary:
 | `exercises` | Catálogo, labels, random, recommend |
 | `storage` | Cloudinary: `uploadImage`, `deleteImage`, `deleteFolder` |
 | `ai` | Puerto `AiService` + adapter Gemini (`recommendWorkout`, `analyzeProgressPhotos`) |
+| `email` | Puerto `EmailService` + adapter Resend (`send`, `sendCoachInvite`). Sin `RESEND_API_KEY` no envía |
 | `admin` | Stats, users, soft-delete, grant / revoke |
 | `coach-templates` | Biblioteca de plantillas + apply a alumnos |
 | `excel` · `pdf` · `zip` | Export de planes coach (Excel, PDF, ZIP multi-alumno) |
@@ -140,6 +148,7 @@ src/
   excel/ · pdf/ · zip/
   exercises/
   ai/             # AiService port + Gemini provider
+  email/          # EmailService port + Resend provider
   storage/        # Cloudinary
   users/          # User + Invite + progress/profile photos
   app.module.ts

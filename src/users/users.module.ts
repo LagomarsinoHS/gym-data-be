@@ -5,6 +5,7 @@ import { ExcelModule } from '../excel/excel.module';
 import { ExercisesModule } from '../exercises/exercises.module';
 import { HashingModule } from '../common/hashing/hashing.module';
 import { AiModule } from '../ai/ai.module';
+import { EmailModule } from '../email/email.module';
 import { StorageModule } from '../storage/storage.module';
 import { PdfModule } from '../pdf/pdf.module';
 import { ZipModule } from '../zip/zip.module';
@@ -29,6 +30,7 @@ import { UsersService } from './users.service';
     StorageModule,
     HashingModule,
     AiModule,
+    EmailModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository, InvitesRepository],

@@ -38,4 +38,9 @@ export const envValidationSchema = Joi.object({
     'string.empty': 'Missing required environment variable: GEMINI_API_KEY',
   }),
   GEMINI_MODEL: Joi.string().default('gemini-3.6-flash'),
+  RESEND_API_KEY: Joi.string().allow('').optional(),
+  RESEND_FROM: Joi.string()
+    .default('ExerciseDB <beth.t@example.com>')
+    .optional(),
+  APP_PUBLIC_URL: Joi.string().allow('').optional(),
 });
